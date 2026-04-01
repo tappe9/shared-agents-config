@@ -36,27 +36,31 @@ superpower スキルを使った開発の標準運用フロー。
 
 ### 2. 標準フロー（挙動変更あり）
 
-1. **`brainstorming`** — 設計合意
-   - 目的・制約・成功条件を明確化し、設計合意を取る
-2. **`writing-plans`** — 計画作成
-   - 作業計画は各 worktree のローカルファイル `.plan/current.md` に作成する
-   - 恒久的に残す価値がある計画のみ `docs/plans/YYYY-MM-DD-<topic>.md` に保存してコミットする
-3. **`using-git-worktrees`** — ブランチ分離（コード変更時は原則必須）
-   - 実装は worktree で開始する（docs のみ変更は除く）
-   - `.worktrees/` または `worktrees/` を使う場合は `git check-ignore` で ignore 状態を確認する
-   - ignore されていない場合は `.gitignore` に追加してから進む
-4. **実装実行**（デフォルト）
-   - `subagent-driven-development` を第一選択とする
-   - 別セッションで実行したい場合のみ `executing-plans` を使う
-5. **品質ゲート**（実装中）
-   - 機能追加/修正は `test-driven-development` を適用する
-   - 不具合・テスト失敗時は `systematic-debugging` を先に適用し、原因確定前に修正しない
-6. **`verification-before-completion`** — 完了前検証
-   - 成功主張前にコマンド結果で確認する
-7. **レビューと統合**
-   - `subagent-driven-development` を使う場合は各タスク後に `requesting-code-review` を必須とする
-   - major feature 完了時と PR 前は `requesting-code-review` を必須とする
-   - 最終統合は `finishing-a-development-branch` の手順に従う
+#### Phase 1: 設計（変更規模に応じてスキップ可）
+
+| ステップ | スキル | スキップ条件 |
+|---|---|---|
+| 設計合意 | `brainstorming` | 影響範囲が単一ファイル・単一関数に閉じる場合 |
+| 計画作成 | `writing-plans` | 作業ステップが3つ以下で自明な場合 |
+
+- 計画は `.plan/current.md` に作成（Git 管理しない）
+- 恒久的に残す価値がある計画のみ `docs/plans/YYYY-MM-DD-<topic>.md` に保存
+
+#### Phase 2: 実装
+
+1. **ブランチ分離**: `using-git-worktrees` で worktree を作成
+   - `.worktrees/` が ignore されていることを確認してから進む
+2. **コード実装**: `subagent-driven-development` を第一選択
+   - 別セッション実行時のみ `executing-plans` を使う
+3. **品質ゲート**（実装と並行）:
+   - 機能追加/修正 → `test-driven-development`
+   - テスト失敗/不具合 → `systematic-debugging` で原因確定してから修正
+
+#### Phase 3: 完了
+
+1. **検証**: `verification-before-completion` でコマンド結果を確認
+2. **レビュー**: `requesting-code-review` を実施
+3. **統合**: `finishing-a-development-branch` の手順に従う
 
 ### 3. 簡易フロー（非機能変更のみ）
 
@@ -72,10 +76,9 @@ superpower スキルを使った開発の標準運用フロー。
 
 ### 5. 計画ドキュメント運用
 
-- 作業計画は各 worktree のローカルファイル `.plan/current.md` に作成する
-- `.plan/` は Git 管理しない（必ず ignore する）
+- 作業計画は `.plan/current.md` に作成（Git 管理しない）
 - 恒久的に残す価値がある計画のみ `docs/plans/YYYY-MM-DD-<topic>.md` に保存してコミットする
-- 恒久化の基準は「将来の実装判断で再利用する設計判断・制約・トレードオフを含むこと」
+- 恒久化の基準: 将来の実装判断で再利用する設計判断・制約・トレードオフを含むこと
 
 ## コミットルール
 
