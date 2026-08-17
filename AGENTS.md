@@ -77,6 +77,11 @@ superpower スキルを使った開発の標準運用フロー。
 
 1. **ブランチ分離**: `using-git-worktrees` で worktree を作成
    - `.worktrees/` が ignore されていることを確認してから進む
+   - worktree 作成後、作成元 checkout に `.env` が存在する場合は worktree 側にも `.env` をコピーする
+     - コピー先に既に `.env` がある場合は上書きしない
+     - `.env` の内容は出力しない
+     - 作成元に `.env` がない場合は、コピー未実施として明示する
+     - `.env` は Git 管理・コミット対象にしない
    - worktree 利用時も、計画ファイルは worktree 配下ではなく作成元の元作業ディレクトリ側の `.plan/` に作成する
 2. **コード実装**:
    - 複数ファイルにまたがる実装、責務分割が必要な実装、調査と実装を分けたい場合は `subagent-driven-development` を第一選択とする
