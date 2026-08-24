@@ -36,11 +36,15 @@ superpower スキルを使った開発の標準運用フロー。
 
 ### 0.1 サブエージェント利用方針
 
-- `spawn_agent` で使用できる `agent_type` は、`agents/` に定義済みの `explorer`、`implementer`、`reviewer`、`tester` のみとする
-- `spawn_agent` を使用する際は、上記4ロールのいずれかを `agent_type` に明示指定する
+- `spawn_agent` で使用できる `agent_type` は、`agents/` に定義済みの `explorer`、`implementer`、`reviewer`、`reviewer_high_risk`、`tester` のみとする
+- `spawn_agent` を使用する際は、上記5ロールのいずれかを `agent_type` に明示指定する
 - 環境提供の `default`・`worker`、および上記以外の未定義ロールは使用しない
-- 4ロールで扱えない作業は親エージェントが担当する。新しいロールが必要な場合は、`agents/` への定義追加と本節の許可リスト更新について、事前にユーザー承認を得る
+- 5ロールで扱えない作業は親エージェントが担当する。新しいロールが必要な場合は、`agents/` への定義追加と本節の許可リスト更新について、事前にユーザー承認を得る
 - レビュー、調査、並列実装では、ユーザーからの明示的な依頼・許可としてサブエージェント利用を許可する
+- 通常のコードレビューには `reviewer` を使用する
+- 認証・認可・権限・公開範囲、API 契約、DB スキーマ・マイグレーション・データ補正 SQL、データ破壊・不整合、機密情報、課金・通知・バッチ・定期実行・feature flag、または影響範囲を限定しにくい横断的変更のレビューには `reviewer_high_risk` を使用する
+- `reviewer` と `reviewer_high_risk` は原則として同時に起動せず、高リスク条件に該当する場合は `reviewer_high_risk` を選択する
+- `reviewer` が Critical・High 候補または判断困難な境界を報告した場合は、`reviewer_high_risk` に追加レビューを依頼する
 
 ### 1. worktree 運用ルール
 
