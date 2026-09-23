@@ -1,7 +1,7 @@
 name = "tester"
 description = "実装された変更に対するテスト設計、テストコード追加、テスト実行、回帰確認を担当するエージェント。"
 
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
