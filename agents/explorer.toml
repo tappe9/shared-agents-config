@@ -1,7 +1,7 @@
 name = "explorer"
 description = "実装前のコードベース調査、仕様確認、影響範囲調査を担当する読み取り専用エージェント。変更前の調査に使用する。"
 
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 

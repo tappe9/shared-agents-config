@@ -12,6 +12,10 @@ Codex の個人環境で使う共通 `AGENTS.md`、サブエージェント定�
 
 Supabase の schema 名やアプリ固有の禁止事項は、対象リポジトリの `AGENTS.md` で管理します。共通 `AGENTS.md` には置きません。
 
+## サブエージェントのモデル
+
+通常の調査・実装・レビュー・テストには `gpt-6-luna` を使い、高リスクレビューには `gpt-6-sol` を使います。各 role の `model_reasoning_effort` と sandbox 設定は `agents/*.toml` で管理します。
+
 ## 配布元と配置先
 
 | 配布元 | 個人環境の配置先 | 同期方針 |
