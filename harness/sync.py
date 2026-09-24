@@ -159,6 +159,9 @@ def _add_file(plan: SyncPlan, layout: Layout, name: str, desired: bytes,
         action = 'update'
     elif legacy.get(name) == before:
         action = 'adopt'
+    elif (name.startswith('agents/') and name in legacy and
+          before.replace(b'\r\n', b'\n') == legacy[name].replace(b'\r\n', b'\n')):
+        action = 'adopt'
     else:
         action = 'conflict'
     if action == 'conflict':
