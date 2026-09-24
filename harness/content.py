@@ -123,8 +123,6 @@ def read_policy(repo: Path) -> tuple[str, ...]:
     assert_safe_target(repo, path)
     try:
         data = tomllib.loads(path.read_text(encoding='utf-8-sig'))
-        if set(data) != {'schema_version', 'required_skills'}:
-            raise ValueError
         if type(data.get('schema_version')) is not int or data['schema_version'] != 1:
             raise ValueError
         names = data['skills']['disabled_user_dirs']
@@ -236,6 +234,8 @@ def read_dependencies(repo: Path) -> dict:
     assert_safe_target(repo, path)
     try:
         data = tomllib.loads(path.read_text(encoding='utf-8-sig'))
+        if set(data) != {'schema_version', 'required_skills'}:
+            raise ValueError
         if type(data.get('schema_version')) is not int or data['schema_version'] != 1:
             raise ValueError
         names = data['required_skills']
