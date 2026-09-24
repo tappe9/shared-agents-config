@@ -12,19 +12,52 @@
 
 ## 通常の適用
 
-原本の変更をGit管理し、作業ツリーがcleanな状態で次の順に実行します。
+### 1. 原本を確認・準備する
+
+共通変更は配置先から始めず、まず `tappe9/shared-agents-config` のcheckoutを特定します。固定絶対パスは前提にしません。必要に応じて次のようにGit情報を確認します。
+
+```bash
+git rev-parse --show-toplevel
+git remote -v
+```
+
+目的の原本であることを確認できなければ、推測した場所や `CODEX_HOME` の管理領域だけを変更しません。
+
+原本を変更したら、まず次を実行します。
 
 ```bash
 python -m harness validate
 python -m harness plan
-python -m harness apply
-python -m harness verify
 ```
 
 - `validate`: 原本の構文・参照関係を検証します。
 - `plan`: 配置先を変更せず、差分・競合を確認します。
-- `apply`: 管理対象だけを反映します。
-- `verify`: 反映状態、競合、旧定義の残存を確認します。
+
+commit、push、PR、mergeは既存の承認境界に従います。原本を先に変更する方針は、これらを無断で実行する許可ではありません。`apply` がcleanな原本を必要とすることだけを理由に、未承認のcommitを行いません。
+
+適用するcommitが確定したら作業ツリーがcleanであることを確認し、そのcommitから `validate` と `plan` を再実行して最終状態を確認します。
+
+### 2. Codexを終了して適用する
+
+対象のCodexクライアントを終了します。その後、Codexとは別のPowerShell／Terminalから実行します。
+
+```bash
+python -m harness apply
+```
+
+`apply` は管理対象だけを反映します。Codex稼働中に、自分自身が読み込んでいる管理対象へ直接 `apply` する方式は標準手順として動作確認済みとは扱いません。
+
+### 3. 再起動後に確認する
+
+Codexを再起動した後、次を実行して配置状態を確認します。
+
+```bash
+python -m harness verify
+```
+
+`verify` は反映状態、競合、旧定義の残存を確認する読み取り専用の検証です。成功しても、新しいCodexセッションが変更後の設定を読み込んだことまで証明するものではありません。
+
+設定変更やCodex更新で実動作確認が必要な場合だけ、新規セッションで対象機能を確認します。通常の適用ごとに全roleや全機能を検証・記録する必要はありません。
 
 初回移行で既存AGENTSのローカル追記を保持する必要がある場合は、READMEの `--adopt-from COMMIT` 手順を使用します。
 
