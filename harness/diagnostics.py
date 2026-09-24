@@ -81,7 +81,7 @@ def inspect_runtime(layout: Layout) -> list[Diagnostic]:
         if path.exists() or is_link(path):
             checks.append(Diagnostic('project-scope:' + relative, 'warn', 'observed', 'Project scope may change effective configuration.'))
     if is_link(layout.skills_home / 'superpowers'):
-        checks.append(Diagnostic('legacy-superpowers', 'warn', 'observed', 'Legacy skill link exists; inventory needs review.'))
+        checks.append(Diagnostic('legacy-superpowers', 'warn', 'observed', 'Legacy skill link exists; review for configuration conflicts.'))
     config = layout.codex_home / 'config.toml'
     try:
         assert_safe_target(layout.codex_home, config)
@@ -91,7 +91,7 @@ def inspect_runtime(layout: Layout) -> list[Diagnostic]:
             uncertain = any(not isinstance(e.get('path'), str) or
                             not Path(e['path']).is_absolute() or not Path(e['path']).is_file() for e in entries)
             if uncertain:
-                checks.append(Diagnostic('skill-overrides', 'warn', 'observed', 'Named, relative or absent skill targets need inventory review.'))
+                checks.append(Diagnostic('skill-overrides', 'warn', 'observed', 'Named, relative or absent skill targets need configuration review.'))
     except (OSError, ValueError, TypeError, AttributeError):
         checks.append(Diagnostic('skill-overrides', 'warn', 'not_checked', 'Skill override configuration cannot be inspected.'))
     return checks
