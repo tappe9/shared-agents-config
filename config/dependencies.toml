@@ -1,0 +1,20 @@
+# Project-owned manifest; versions are historical observations, not installation pins.
+schema_version = 1
+required_skills = [
+  "superpowers:using-git-worktrees",
+  "superpowers:brainstorming",
+  "superpowers:writing-plans",
+  "superpowers:test-driven-development",
+  "superpowers:systematic-debugging",
+  "superpowers:verification-before-completion",
+  "superpowers:requesting-code-review",
+  "superpowers:finishing-a-development-branch",
+  "git-commit",
+]
+
+[providers.superpowers]
+source = "openai-curated-remote"
+last_documented_version = "6.4.1"
+
+[providers.git_commit]
+source_status = "unconfirmed"

@@ -1,0 +1,9 @@
+# Project-owned policy, NOT a Codex config file.
+schema_version = 1
+
+[skills]
+disabled_user_dirs = [
+  "brainstorming",
+  "requesting-code-review",
+  "skill-creator",
+]
