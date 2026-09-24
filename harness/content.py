@@ -246,8 +246,7 @@ def read_dependencies(repo: Path) -> dict:
                 if not name.startswith('superpowers:'):
                     raise ValueError
                 validate_relative_name(name.split(':', 1)[1])
-        providers = data.get('providers', {})
-        if not isinstance(providers, dict) or any(not isinstance(v, dict) for v in providers.values()):
+        if set(data) != {'schema_version', 'required_skills'}:
             raise ValueError
         return data
     except (OSError, ValueError, KeyError, TypeError):

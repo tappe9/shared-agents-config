@@ -1,46 +1,55 @@
-# Windows／macOSの手動確認
+# Windows／macOSの適用確認
 
-この手順は実施予定のチェックリストです。実機の確認済み記録ではありません。CIと端末への反映、Codexの実際の読み込みを区別してください。
+この文書は、共通設定を各端末へ安全に適用するための最小手順です。
+端末別のCodex版、外部skillの版・導入元、role起動結果などを継続記録する台帳ではありません。
 
-## 適用前
+## 前提
 
-1. 両端末で使用するCodexクライアントと版、ホーム、CODEX_HOMEを確認する。
-2. 配置先のCodexを終了し、原本コミットを `git rev-parse HEAD` で確認する。
-3. 作業ツリーがcleanであることと、旧AGENTSに対応する原本コミットを確認する。
-4. `plan`、既存環境の初回移行では `plan --adopt-from COMMIT` を実行する。
-5. 競合、旧定義、無効化対象、管理対象外設定への影響がないことを確認する。未知prefixは推測で上書きしない。
+- Superpowersと `git-commit` がインストール済みで、利用するCodexから使用できること。
+- 共通ハーネスの変更はこのリポジトリの原本へ先に反映すること。
+- 認証、MCP、project trust、通知などの管理対象外設定を原本へ取り込まないこと。
+- 実機への適用時は、対象のCodexクライアントを終了すること。
 
-## 配置確認
+## 通常の適用
 
-適用を行う端末で対象を確認したうえで `apply` を実行し、`verify` と `doctor --record` の結果を記録します。
+原本の変更をGit管理し、作業ツリーがcleanな状態で次の順に実行します。
 
-- [ ] 両端末で原本コミットが同じ。
-- [ ] `verify` の不一致がない。
-- [ ] 同じ状態で再applyしても、管理ファイルとstateの更新日時・内容が変わらない。
-- [ ] 端末固有のAGENTS追記が保持されている。
-- [ ] MCP、認証、project trust、通知などの対象外設定が変わっていない。
-- [ ] 旧role／skillが残る場合、retiredとして認識できる。
-- [ ] 不足した依存や未確認の出所が成功扱いされていない。
+```bash
+python -m harness validate
+python -m harness plan
+python -m harness apply
+python -m harness verify
+```
 
-## 新規Codexセッション
+- `validate`: 原本の構文・参照関係を検証します。
+- `plan`: 配置先を変更せず、差分・競合を確認します。
+- `apply`: 管理対象だけを反映します。
+- `verify`: 反映状態、競合、旧定義の残存を確認します。
 
-- [ ] 共通AGENTSが読み込まれ、overrideで隠れていない。
-- [ ] 独自skillの出所が意図したuser scopeの1件になっている。
-- [ ] 無効化対象のstandaloneだけが無効になり、system／plugin版を維持している。
-- [ ] 5つのrole、model、推論強度、sandboxを認識している。
-- [ ] `git-commit` の実際の導入元を確認し、依存記録へ反映できる。
-- [ ] Desktop／CLI／IDEの版と使用する設定を混同していない。
+初回移行で既存AGENTSのローカル追記を保持する必要がある場合は、READMEの `--adopt-from COMMIT` 手順を使用します。
 
-## 挙動確認
+## 問題がある場合
 
-使い捨てのリポジトリで既存trigger matrixを確認します。本番接続や実際のremoteを持たせず、調査だけなら編集しない、誤字修正はlightweight、設定変更はstandard、計画だけなら製品コード変更なし、を操作履歴と差分で確認してください。
+必要に応じて次を実行します。
 
-commit／pushを許可していない場合に実行しないことも確認します。roleの実spawnは `AGENTS.md` の共通方針に従います。検証として承認された範囲内で、[trigger matrix](../tests/implementing-repository-changes-trigger-matrix.md) の「Issue #6 動作確認ケース」SG-01〜09を確認してください。ケースを記載しただけでは実施済みと扱いません。
+```bash
+python -m harness doctor
+```
 
-1. 新規セッションで、使用クライアント・版・設定の読み込み元を確認する。`CODEX_HOME` の隔離だけでuser skillも隔離できたとは扱わず、通常環境の認証情報をコピーしない。
-2. SG-01などは利用許可を付け足さず、通常の変更依頼として実行する。SG-02の調査のみでは変更実行用skillや書き込みがなく、SG-06の明示禁止ではspawnしないことを確認する。
-3. spawn、テストの失敗理由確認、編集、テスト再実行、独立レビューの時系列を確認する。SG-07は担当分離・直列化、SG-09は親子とも未承認操作がないことを履歴と差分で見る。
-4. SG-08は安全に確認できる機能未提供・起動失敗だけを使う。sandbox緩和、認証変更、際限のない再試行はしない。再現できなければ未確認と記録する。
-5. OS、クライアントと版、原本コミット、読み込み元、実起動role・確認可能なmodel、case ID、結果、証拠と未実施理由をWindows／macOS別に記録する。公開記録には秘密情報・個人パスを含めない。
+`doctor` は、明示された依存パス、global override、project scopeの設定、skill overrideなど、
+現在確認できる問題を補助的に診断します。
 
-未実施、skip、環境制約は `compatibility.md` へ記録し、モデルの自己申告や分類結果だけで全動作を検証済みとしません。
+外部skillの導入元・revision・version、Codexクライアント版、実セッションでのrole・model・sandboxの確認結果を
+記録していないだけでは警告にしません。
+
+明示的に依存ファイルの場所も調べたい場合だけ、`local.example.toml` を参考にlocal configを設定します。
+`doctor --record` はトラブル調査で診断結果を保存したい場合の任意機能であり、通常の適用手順には含めません。
+
+## 実動作確認
+
+設定変更やCodex更新で実動作の確認が必要な場合は、その変更に必要な範囲だけ確認します。
+自動テスト、配置検証、`doctor` の成功だけを根拠に、未確認のCodexセッション動作まで確認済みとは扱いません。
+
+サブエージェント方針を変更する場合の確認ケースは
+[trigger matrix](../tests/implementing-repository-changes-trigger-matrix.md) を参照できますが、
+通常の設定適用ごとに全ケースを実施・記録する必要はありません。

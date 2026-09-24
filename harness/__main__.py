@@ -78,7 +78,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == 'doctor':
             checks = inspect_runtime(layout)
             code = 2 if any(c.status == 'missing' for c in checks) else (
-                1 if any(c.status != 'ok' for c in checks) else 0)
+                1 if any(c.status == 'warn' for c in checks) else 0)
             report = {'schema_version': 1, 'source_commit': commit_sha(layout.repo),
                       'applied_source_commit': load_state(layout)[0].get('source_commit'),
                       'checked_at': datetime.now(timezone.utc).isoformat(),
