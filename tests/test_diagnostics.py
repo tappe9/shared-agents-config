@@ -68,12 +68,17 @@ def test_explicit_missing_skill_is_reported(sandbox, tmp_path):
     assert next(d for d in checks if d.name == 'superpowers:brainstorming').status == 'missing'
 
 
-def test_reported_version_differs_from_documented(sandbox):
-    sandbox.write('config/dependencies.toml', 'schema_version=1\nrequired_skills=[]\n[providers.superpowers]\nlast_documented_version="6.4.1"\n')
-    sandbox.layout.state_dir.mkdir(parents=True)
-    sandbox.layout.local_config.write_text('schema_version=1\n[superpowers]\nversion="6.5.0"\n')
-    check = next(d for d in diagnostics.inspect_runtime(sandbox.layout) if d.name == 'superpowers-version')
-    assert check.status == 'warn' and check.evidence_kind == 'reported'
+def test_provider_metadata_is_rejected_by_dependency_manifest(sandbox):
+    sandbox.write(
+        'config/dependencies.toml',
+        'schema_version=1\nrequired_skills=[]\n'
+        '[providers.superpowers]\nlast_documented_version="6.4.1"\n',
+    )
+    check = next(
+        d for d in diagnostics.inspect_runtime(sandbox.layout)
+        if d.name == 'dependencies'
+    )
+    assert check.status == 'missing'
 
 
 def test_malformed_local_config_is_sanitized(sandbox):
