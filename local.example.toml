@@ -1,0 +1,18 @@
+# Optional local diagnostics configuration. Not a Codex config file.
+# Copy outside this repository or use the ignored local.toml filename.
+schema_version = 1
+
+# Set only values actually observed on this device.
+# [superpowers]
+# skills_root = "/absolute/path/to/plugin/skills"
+# version = "6.4.1"
+
+# [git_commit]
+# skill_file = "/absolute/path/to/git-commit/SKILL.md"
+
+# [client]
+# kind = "desktop"  # desktop, cli or ide
+# version = "1.2.3"  # replace with the actual observed version
+
+# Windows paths should use TOML literal strings or escaped backslashes.
+# Values here are reported by the user, not proof of active session loading.
