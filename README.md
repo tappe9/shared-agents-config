@@ -1,6 +1,8 @@
 # shared-agents-config
 
-WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人skillを同じ方針で管理し、Git上の原本と各端末の反映状態を照合するためのリポジトリです。
+WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人skillを同じ方針で管理し、Git上の原本と各端末へ安全に反映するためのリポジトリです。
+
+このリポジトリは共通設定の原本、変更履歴、安全な適用を管理します。端末・Codexクライアント・外部skillの版や確認日、実機テスト結果を継続記録する環境台帳にはしません。ハーネス改善やCodex更新時は、まずこの原本を見直してGitで変更を管理し、その内容を各環境へ適用します。
 
 ## 管理対象
 
@@ -10,9 +12,13 @@ WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人
 | `agents/*.toml` | `CODEX_HOME/agents/` | 管理対象ファイル |
 | Git追跡済みの `skills/<name>/**` | `~/.agents/skills/<name>/` | 管理対象ファイル |
 | `config/skills-policy.toml` | `CODEX_HOME/config.toml` | 対象user skillの無効化設定だけ |
-| `config/dependencies.toml` | 配布せず診断に使用 | 必須の外部skillと出所 |
+| `config/dependencies.toml` | 配布しない | 必須の外部skill名 |
 
 `CODEX_HOME` はCLIの `--codex-home`、環境変数 `CODEX_HOME`、ホーム配下の `.codex` の順に決定します。user skillの配置先はホーム配下の `.agents/skills` で、`CODEX_HOME` には連動しません。
+
+## 前提条件
+
+各環境には **Superpowersと `git-commit` がインストールされ、利用するCodexから使用できること**を前提とします。`config/dependencies.toml` は必要な外部skill名だけを宣言します。外部skill自体のインストール、更新、導入元、version／revisionの管理はこのリポジトリの対象外です。
 
 認証ファイル、MCP、project trust、通知、対象外のskill設定は配布原本に取り込みません。プロジェクト間の関係やアプリ固有の制約は、そのプロジェクトの `AGENTS.md` で管理します。個人skillの原本は `skills/` に置き、この管理リポジトリ内の `.agents/skills/` へ複製しません。
 
@@ -127,11 +133,9 @@ python -m harness doctor --record
 
 後者は同じディレクトリの `diagnostics.json` に結果を保存します。現在の原本コミットと適用済みコミットは別々に記録します。
 
-`local.example.toml` を参考に、実機で確認した依存元を `CODEX_HOME/shared-agents-config/local.toml` に設定できます。`--local-config` による明示指定も可能です。system／pluginの実際の導入場所を確認して記入し、設定例の値を実測値だと扱わないでください。
+`doctor` はoverrideや明示した外部skillパスなどを調べるトラブルシュート用の補助コマンドです。通常運用で外部skillの導入元・版・確認日を記録する必要はありません。`--record` は必要な調査で診断結果を残したい場合だけ使用します。
 
-診断は `observed`（取得した証拠）、`reported`（ローカル設定で申告）、`not_checked`（未確認）を区別します。plugin cacheの存在はファイルの存在証拠にすぎず、現在のCodexセッションでの利用証拠とはしません。CLIのバージョンからDesktopやIDEのバージョンを推測しません。外部skillの自動インストール、ログイン、モデル問い合わせは行いません。
-
-`git-commit` の導入元は未確認です。実機inventoryで確認してから記録します。Superpowersの6.4.1は以前のREADMEの記録であり、現在両端末で有効と断定する値ではありません。
+詳細な環境inventoryを正常終了の前提にしない `doctor` の判定整理は Issue #11 で扱います。外部skillの自動インストール、ログイン、モデル問い合わせは行いません。
 
 ## テストと実機確認
 
@@ -143,4 +147,4 @@ git diff --check
 
 テストは一時Gitリポジトリと一時ホームだけを使用します。CI定義はWindows／macOS・Python 3.11／3.14です。実際の個人設定、認証、モデルは使用しません。
 
-新規Codexセッションでの確認は [docs/manual-verification.md](docs/manual-verification.md)、検証証拠と未確認事項は [docs/compatibility.md](docs/compatibility.md) を参照してください。CI成功、配置成功、実機の読み込み成功は別に記録します。
+必要な適用・トラブル確認は [docs/manual-verification.md](docs/manual-verification.md) を参照してください。CI結果はGitHub Actionsを参照し、対象コミットや実行URLを別のMarkdown台帳へ転記しません。変更内容に応じて実機確認が必要な場合だけ実施し、自動テストの成功を未確認のCodexセッション動作の保証とは表現しません。
