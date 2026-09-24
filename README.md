@@ -16,7 +16,13 @@ WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人
 
 認証ファイル、MCP、project trust、通知、対象外のskill設定は配布原本に取り込みません。プロジェクト間の関係やアプリ固有の制約は、そのプロジェクトの `AGENTS.md` で管理します。個人skillの原本は `skills/` に置き、この管理リポジトリ内の `.agents/skills/` へ複製しません。
 
-既存の5 role、model、推論強度、sandbox、詳細フロー、commit／push／PR／mergeの承認境界を維持します。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
+既存の5 role、model、推論強度、sandbox、commit／push／PR／mergeの承認境界を維持します。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
+
+## サブエージェント運用
+
+利用条件と例外は [AGENTS.md](AGENTS.md) の共通方針を参照します。既存5 roleを積極利用し、範囲を切り出せる調査・実装・テスト・レビューは委譲を原則とします。軽微な作業などは親が直接処理し、毎回全roleを起動する運用にはしません。
+
+サブエージェントの利用と各操作の承認は別です。委譲しても変更範囲やcommit／push／PR／merge等の権限は増えません。方針テスト・配置検証の成功と、実際の委譲・並列実行の成功も別です。実動作は [手動確認](docs/manual-verification.md) と [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) で確認します。
 
 ## 準備
 
