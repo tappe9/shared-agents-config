@@ -19,34 +19,59 @@ def test_missing_cli_is_unknown_not_verified(sandbox):
     assert not sandbox.layout.home.exists()
 
 
-def test_version_is_observed_but_session_is_not(sandbox, monkeypatch):
+def test_cli_version_is_optional_observation(sandbox, monkeypatch):
     monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: '/fake/codex')
-    monkeypatch.setattr(diagnostics.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0, b'codex-cli 0.155.0-alpha.16\n', b''))
+    monkeypatch.setattr(
+        diagnostics.subprocess, 'run',
+        lambda *a, **k: subprocess.CompletedProcess(
+            a, 0, b'codex-cli 0.155.0-alpha.16\n', b''),
+    )
     checks = diagnostics.inspect_runtime(sandbox.layout)
     assert next(d for d in checks if d.name == 'codex-cli').status == 'ok'
-    assert next(d for d in checks if d.name == 'session-inventory').status == 'unknown'
+    assert not any(d.name == 'session-inventory' for d in checks)
 
 
 @pytest.mark.parametrize('output', [b'0.155.0\nPRIVATE', b'PRIVATE value', b'\xff'])
-def test_unexpected_cli_output_is_not_disclosed(sandbox, monkeypatch, output):
+def test_unexpected_cli_output_is_unknown_and_not_disclosed(
+        sandbox, monkeypatch, output):
     monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: '/fake/codex')
-    monkeypatch.setattr(diagnostics.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0, output, b'SECRET'))
+    monkeypatch.setattr(
+        diagnostics.subprocess, 'run',
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, output, b'SECRET'),
+    )
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert next(d for d in checks if d.name == 'codex-cli').status == 'warn'
+    assert next(d for d in checks if d.name == 'codex-cli').status == 'unknown'
     assert 'PRIVATE' not in repr(checks) and 'SECRET' not in repr(checks)
 
 
-def test_timeout_is_not_success(sandbox, monkeypatch):
+def test_timeout_is_unknown_not_warning(sandbox, monkeypatch):
     monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: '/fake/codex')
+
     def timeout(*a, **k):
         raise subprocess.TimeoutExpired('PRIVATE', 5)
+
     monkeypatch.setattr(diagnostics.subprocess, 'run', timeout)
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert next(d for d in checks if d.name == 'codex-cli').status == 'warn'
+    assert next(d for d in checks if d.name == 'codex-cli').status == 'unknown'
     assert 'PRIVATE' not in repr(checks)
 
 
-@pytest.mark.parametrize('content,expected', [(b'', 'ok'), (b' \n', 'ok'), (b'override', 'warn')])
+def test_unconfigured_required_skills_do_not_create_inventory_warnings(sandbox):
+    sandbox.write(
+        'config/dependencies.toml',
+        'schema_version=1\n'
+        'required_skills=["superpowers:brainstorming","git-commit"]\n',
+    )
+    checks = diagnostics.inspect_runtime(sandbox.layout)
+    assert not any(
+        d.name in {'superpowers:brainstorming', 'git-commit'}
+        for d in checks
+    )
+
+
+@pytest.mark.parametrize('content,expected', [
+    (b'', 'ok'), (b' \n', 'ok'), (b'override', 'warn'),
+])
 def test_override_is_checked_without_editing(sandbox, content, expected):
     sandbox.layout.codex_home.mkdir(parents=True)
     path = sandbox.layout.codex_home / 'AGENTS.override.md'
@@ -58,39 +83,55 @@ def test_override_is_checked_without_editing(sandbox, content, expected):
 
 def test_explicit_missing_skill_is_reported(sandbox, tmp_path):
     import tomlkit
+
     root = tmp_path / 'plugin-skills'
     root.mkdir()
-    sandbox.write('config/dependencies.toml', 'schema_version=1\nrequired_skills=["superpowers:brainstorming"]\n')
+    sandbox.write(
+        'config/dependencies.toml',
+        'schema_version=1\nrequired_skills=["superpowers:brainstorming"]\n',
+    )
     sandbox.layout.state_dir.mkdir(parents=True)
-    config = tomlkit.dumps({'schema_version': 1, 'superpowers': {'skills_root': str(root)}})
+    config = tomlkit.dumps({
+        'schema_version': 1,
+        'superpowers': {'skills_root': str(root)},
+    })
     sandbox.layout.local_config.write_text(config, encoding='utf-8')
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert next(d for d in checks if d.name == 'superpowers:brainstorming').status == 'missing'
-
-
-def test_reported_version_differs_from_documented(sandbox):
-    sandbox.write('config/dependencies.toml', 'schema_version=1\nrequired_skills=[]\n[providers.superpowers]\nlast_documented_version="6.4.1"\n')
-    sandbox.layout.state_dir.mkdir(parents=True)
-    sandbox.layout.local_config.write_text('schema_version=1\n[superpowers]\nversion="6.5.0"\n')
-    check = next(d for d in diagnostics.inspect_runtime(sandbox.layout) if d.name == 'superpowers-version')
-    assert check.status == 'warn' and check.evidence_kind == 'reported'
+    assert next(
+        d for d in checks if d.name == 'superpowers:brainstorming'
+    ).status == 'missing'
 
 
 def test_malformed_local_config_is_sanitized(sandbox):
     sandbox.layout.state_dir.mkdir(parents=True)
     sandbox.layout.local_config.write_text('SECRET = "unterminated')
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert any(d.name == 'local-config' and d.status == 'warn' for d in checks)
+    assert any(
+        d.name == 'local-config' and d.status == 'warn'
+        for d in checks
+    )
     assert 'SECRET' not in repr(checks)
 
 
 def test_external_references_must_be_in_manifest(sandbox):
-    sandbox.write('skills/sample/SKILL.md', '---\nname: sample\ndescription: test\n---\nUse `superpowers:brainstorming`.\n')
-    assert any(p.code == 'missing-dependency' for p in validate_sources(sandbox.repo))
+    sandbox.write(
+        'skills/sample/SKILL.md',
+        '---\nname: sample\ndescription: test\n---\n'
+        'Use `superpowers:brainstorming`.\n',
+    )
+    assert any(
+        p.code == 'missing-dependency'
+        for p in validate_sources(sandbox.repo)
+    )
 
 
 def test_relative_config_target_is_flagged(sandbox):
     sandbox.layout.codex_home.mkdir(parents=True)
-    (sandbox.layout.codex_home / 'config.toml').write_text('[[skills.config]]\npath="relative/SKILL.md"\nenabled=false\n')
+    (sandbox.layout.codex_home / 'config.toml').write_text(
+        '[[skills.config]]\npath="relative/SKILL.md"\nenabled=false\n',
+    )
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert any(d.name == 'skill-overrides' and d.status == 'warn' for d in checks)
+    assert any(
+        d.name == 'skill-overrides' and d.status == 'warn'
+        for d in checks
+    )
