@@ -33,6 +33,22 @@ def test_second_apply_is_noop(sandbox):
     assert snapshot(sandbox.layout.home) == before
 
 
+def test_crlf_legacy_role_is_adopted_and_verified(sandbox):
+    old = git(sandbox.repo, 'rev-parse', 'HEAD')
+    target = sandbox.layout.codex_home / 'agents/explorer.toml'
+    target.parent.mkdir(parents=True)
+    legacy = (sandbox.repo / 'agents/explorer.toml').read_bytes()
+    target.write_bytes(legacy.replace(b'\n', b'\r\n'))
+    sandbox.write('agents/explorer.toml',
+                  'name="explorer"\ndescription="updated"\ndeveloper_instructions="test"\n')
+    sandbox.commit()
+
+    result = apply_plan(sandbox.layout, build_plan(sandbox.layout, adopt_from=old))
+    assert not result.problems
+    assert target.read_bytes() == (sandbox.repo / 'agents/explorer.toml').read_bytes()
+    assert verify_deployment(sandbox.layout) == []
+
+
 def test_source_update_preserves_suffix_and_unmanaged_config(sandbox):
     apply(sandbox)
     target = sandbox.layout.codex_home / 'AGENTS.md'

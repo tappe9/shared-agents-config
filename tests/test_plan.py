@@ -54,6 +54,36 @@ def test_known_legacy_prefix_adoption(sandbox):
     assert op.desired_bytes.endswith(suffix)
 
 
+def test_known_legacy_role_with_crlf_is_adopted(sandbox):
+    old = git(sandbox.repo, 'rev-parse', 'HEAD')
+    dest = sandbox.layout.codex_home / 'agents/explorer.toml'
+    dest.parent.mkdir(parents=True)
+    legacy = (sandbox.repo / 'agents/explorer.toml').read_bytes()
+    dest.write_bytes(legacy.replace(b'\n', b'\r\n'))
+    sandbox.write('agents/explorer.toml',
+                  'name="explorer"\ndescription="updated"\ndeveloper_instructions="test"\n')
+    sandbox.commit()
+
+    plan = build_plan(sandbox.layout, adopt_from=old)
+    assert not plan.problems
+    op = next(op for op in plan.operations if op.target_id == 'codex:agents/explorer.toml')
+    assert op.action == 'adopt'
+    assert op.desired_bytes == (sandbox.repo / 'agents/explorer.toml').read_bytes()
+
+
+def test_legacy_role_with_content_change_remains_a_conflict(sandbox):
+    dest = sandbox.layout.codex_home / 'agents/explorer.toml'
+    dest.parent.mkdir(parents=True)
+    legacy = (sandbox.repo / 'agents/explorer.toml').read_bytes()
+    dest.write_bytes(legacy.replace(b'description="test"', b'description="user"')
+                     .replace(b'\n', b'\r\n'))
+
+    plan = build_plan(sandbox.layout, adopt_from='HEAD')
+    op = next(op for op in plan.operations if op.target_id == 'codex:agents/explorer.toml')
+    assert op.action == 'conflict'
+    assert dest.read_bytes() != op.desired_bytes
+
+
 def test_legacy_unknown_prefix_is_not_overwritten(sandbox):
     dest = sandbox.layout.codex_home / 'AGENTS.md'
     dest.parent.mkdir(parents=True)
