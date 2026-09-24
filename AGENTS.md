@@ -26,7 +26,3 @@
 
 - 作業計画は元作業ディレクトリの `.plan/YYYY-MM-DD-HHmm-<topic>.md` に作成し、Git管理・コミット対象にしない
 - `<topic>` は英小文字 kebab-case とし、`current.md` は作成しない
-
-## プロジェクト関連パス
-
-- `D:\src\gyoumu_db_viewer_editor` のバックエンドAPIプロジェクトは `D:\src\aio_gyoumu_web_api`
