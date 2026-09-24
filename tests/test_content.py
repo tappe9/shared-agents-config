@@ -2,7 +2,7 @@ import os
 import pytest
 
 from harness.content import (BEGIN, END, extract_local_suffix, managed_common,
-                             render_agents, source_files, validate_sources)
+                             read_dependencies, render_agents, source_files, validate_sources)
 from conftest import git
 
 
@@ -101,3 +101,20 @@ def test_git_reference_is_resolved_safely(sandbox):
     assert source_files(sandbox.repo, ref=sha)['AGENTS.md'].startswith(b'# Common')
     with pytest.raises(ValueError):
         source_files(sandbox.repo, ref='--help')
+
+
+def test_dependency_manifest_only_contains_required_skill_declarations(sandbox):
+    sandbox.write('config/dependencies.toml',
+                  'schema_version=1\nrequired_skills=["superpowers:brainstorming","git-commit"]\n')
+    assert read_dependencies(sandbox.repo)['required_skills'] == [
+        'superpowers:brainstorming', 'git-commit']
+
+
+@pytest.mark.parametrize('extra', [
+    '[providers.superpowers]\nlast_documented_version="6.4.1"\n',
+    'source_status="unconfirmed"\n',
+])
+def test_dependency_manifest_rejects_inventory_metadata(sandbox, extra):
+    sandbox.write('config/dependencies.toml', 'schema_version=1\nrequired_skills=[]\n' + extra)
+    with pytest.raises(ValueError, match='invalid-dependency-manifest'):
+        read_dependencies(sandbox.repo)
