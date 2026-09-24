@@ -38,6 +38,8 @@ def sandbox(tmp_path):
     git(repo, 'init', '-q')
     layout = resolve_layout(repo, home=tmp_path / 'home', codex_home=tmp_path / 'home/.codex', env={})
     result = Sandbox(repo, layout)
+    schema = Path(__file__).resolve().parents[1] / 'config/codex-config.schema.json'
+    result.write('config/codex-config.schema.json', schema.read_bytes())
     for relative, text in {
         'AGENTS.md': '# Common\n\nAllowed `agent_type`: `explorer`\n',
         'agents/explorer.toml': 'name="explorer"\ndescription="test"\ndeveloper_instructions="test"\n',

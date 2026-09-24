@@ -134,3 +134,20 @@ def test_cli_explicit_local_config(sandbox):
     result = invoke(sandbox, 'doctor', '--local-config', str(local))
     assert result.returncode == 0
     assert '1.2.3' not in result.stdout
+
+
+def test_cli_invalid_role_stops_validate_plan_and_apply_before_writes(sandbox):
+    sandbox.write(
+        'agents/explorer.toml',
+        'name="explorer"\n'
+        'description="test"\n'
+        'developer_instructions="test"\n'
+        'modle="SECRET_ROLE_VALUE"\n',
+    )
+    sandbox.commit()
+    for command in ('validate', 'plan', 'apply'):
+        result = invoke(sandbox, command)
+        assert result.returncode == 2
+        assert 'modle' in result.stdout
+        assert 'SECRET_ROLE_VALUE' not in result.stdout + result.stderr
+    assert not sandbox.layout.home.exists()

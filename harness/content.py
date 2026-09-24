@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -7,12 +8,21 @@ import tomllib
 from pathlib import Path, PurePosixPath
 
 import yaml
+from jsonschema import Draft7Validator
+from jsonschema.exceptions import SchemaError
 
 from .paths import Problem, assert_safe_target, validate_relative_name
 
 BEGIN = b'<!-- shared-agents-config:begin -->\n'
 END = b'<!-- shared-agents-config:end -->\n'
 BOM = b'\xef\xbb\xbf'
+
+ROLE_METADATA_KEYS = frozenset({'name', 'description'})
+ROLE_REQUIRED_STRING_KEYS = ('name', 'description', 'developer_instructions')
+# Pinned to the Codex documentation/schema snapshot recorded in docs/role-validation.md.
+MODEL_REASONING_EFFORTS = frozenset({
+    'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
+})
 
 
 def canonical_text(data: bytes) -> bytes:
@@ -154,6 +164,91 @@ def _unique_mapping(loader, node, deep=False):
 UniqueSafeLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
 
 
+def read_role_schema(repo: Path) -> dict:
+    path = repo / 'config/codex-config.schema.json'
+    assert_safe_target(repo, path)
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+        if (not isinstance(data, dict) or data.get('type') != 'object' or
+                data.get('additionalProperties') is not False or
+                not isinstance(data.get('properties'), dict)):
+            raise ValueError
+        Draft7Validator.check_schema(data)
+        return data
+    except (OSError, UnicodeError, json.JSONDecodeError, SchemaError, TypeError, ValueError):
+        raise ValueError('invalid-role-schema') from None
+
+
+def _role_problem(name: str, key: str, reason: str) -> Problem:
+    return Problem('invalid-role', 'codex:' + name, f'Role setting "{key}" {reason}.')
+
+
+def _schema_problem(name: str, error) -> Problem:
+    path = [str(part) for part in error.absolute_path]
+    if error.validator == 'additionalProperties':
+        match = re.search(r"'([^']+)' (?:was|were) unexpected", error.message)
+        if match:
+            path.append(match.group(1))
+    elif error.validator == 'required':
+        match = re.search(r"'([^']+)' is a required property", error.message)
+        if match:
+            path.append(match.group(1))
+    key = '.'.join(path) or '<root>'
+    reason = {
+        'additionalProperties': 'is not supported by the pinned Codex schema',
+        'enum': 'has an invalid value',
+        'oneOf': 'has an invalid value',
+        'type': 'has an invalid type',
+        'minLength': 'does not meet the minimum length',
+        'minimum': 'is below the allowed minimum',
+        'maximum': 'is above the allowed maximum',
+        'required': 'is required by the pinned Codex schema',
+    }.get(error.validator, 'does not satisfy the pinned Codex schema')
+    return _role_problem(name, key, reason)
+
+
+def _validate_role_definition(name: str, data: dict, roles: set[str],
+                              schema: dict, validator: Draft7Validator) -> list[Problem]:
+    if not isinstance(data, dict):
+        return [_role_problem(name, '<root>', 'must be a TOML table')]
+
+    for key in ROLE_REQUIRED_STRING_KEYS:
+        value = data.get(key)
+        if not isinstance(value, str) or not value.strip():
+            return [_role_problem(name, key, 'must be a non-empty string')]
+
+    role_name = data['name']
+    if role_name != Path(name).stem:
+        return [_role_problem(name, 'name', 'must match the role filename')]
+    if role_name in roles:
+        return [_role_problem(name, 'name', 'duplicates another role name')]
+
+    allowed_keys = set(schema['properties']) | ROLE_METADATA_KEYS
+    unknown = sorted(set(data) - allowed_keys)
+    if unknown:
+        return [_role_problem(name, unknown[0], 'is not supported by the pinned Codex schema')]
+
+    if 'model' in data:
+        model = data['model']
+        if not isinstance(model, str) or not model.strip():
+            return [_role_problem(name, 'model', 'must be a non-empty string')]
+
+    if 'model_reasoning_effort' in data:
+        effort = data['model_reasoning_effort']
+        if not isinstance(effort, str) or effort not in MODEL_REASONING_EFFORTS:
+            return [_role_problem(
+                name, 'model_reasoning_effort',
+                'is not a documented value for the pinned Codex specification',
+            )]
+
+    config_data = {key: value for key, value in data.items() if key not in ROLE_METADATA_KEYS}
+    errors = sorted(
+        validator.iter_errors(config_data),
+        key=lambda error: (tuple(str(part) for part in error.absolute_path), str(error.validator)),
+    )
+    return [_schema_problem(name, errors[0])] if errors else []
+
+
 def validate_sources(repo: Path) -> list[Problem]:
     problems: list[Problem] = []
     try:
@@ -161,6 +256,12 @@ def validate_sources(repo: Path) -> list[Problem]:
         read_policy(repo)
     except (OSError, ValueError):
         return [Problem('invalid-source', 'source', 'Source paths, policy or Git entries are invalid.')]
+    try:
+        role_schema = read_role_schema(repo)
+        role_validator = Draft7Validator(role_schema)
+    except ValueError:
+        return [Problem('invalid-role-schema', 'config:codex-config.schema.json',
+                        'Pinned Codex role schema is invalid or unreadable.')]
     roles = set()
     skills = set()
     for name, raw in files.items():
@@ -168,14 +269,18 @@ def validate_sources(repo: Path) -> list[Problem]:
         if parts[0] == 'agents':
             try:
                 data = tomllib.loads(raw.decode('utf-8-sig'))
-                for key in ('name', 'description', 'developer_instructions'):
-                    if not isinstance(data.get(key), str) or not data[key].strip():
-                        raise ValueError
-                if data['name'] != Path(name).stem or data['name'] in roles:
-                    raise ValueError
-                roles.add(data['name'])
-            except (ValueError, KeyError, TypeError):
-                problems.append(Problem('invalid-role', name, 'Role definition is invalid.'))
+                role_problems = _validate_role_definition(
+                    name, data, roles, role_schema, role_validator,
+                )
+                if role_problems:
+                    problems.extend(role_problems)
+                else:
+                    roles.add(data['name'])
+            except (UnicodeError, ValueError, KeyError, TypeError):
+                problems.append(Problem(
+                    'invalid-role', 'codex:' + name,
+                    'Role TOML cannot be parsed safely.',
+                ))
         if parts[0] == 'skills' and parts[-1] == 'SKILL.md' and len(parts) == 3:
             try:
                 text = raw.decode('utf-8-sig')
