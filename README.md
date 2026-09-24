@@ -1,6 +1,6 @@
 # shared-agents-config
 
-WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人skillを同じ方針で管理し、Git上の原本と各端末の反映状態を照合するためのリポジトリです。
+WindowsとmacOSで使用するCodexの共通設定を原本として管理し、その変更履歴と各端末への安全な適用を行うためのリポジトリです。ハーネス改善やCodex更新に伴う設定変更は、このリポジトリの原本を先に見直してから各環境へ適用します。
 
 ## 管理対象
 
@@ -10,7 +10,7 @@ WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人
 | `agents/*.toml` | `CODEX_HOME/agents/` | 管理対象ファイル |
 | Git追跡済みの `skills/<name>/**` | `~/.agents/skills/<name>/` | 管理対象ファイル |
 | `config/skills-policy.toml` | `CODEX_HOME/config.toml` | 対象user skillの無効化設定だけ |
-| `config/dependencies.toml` | 配布せず診断に使用 | 必須の外部skillと出所 |
+| `config/dependencies.toml` | 配布せず検証・診断に使用 | 必須の外部skill宣言 |
 
 `CODEX_HOME` はCLIの `--codex-home`、環境変数 `CODEX_HOME`、ホーム配下の `.codex` の順に決定します。user skillの配置先はホーム配下の `.agents/skills` で、`CODEX_HOME` には連動しません。
 
@@ -18,11 +18,19 @@ WindowsとmacOSで、Codexの共通ルール・サブエージェント・個人
 
 既存の5 role、model、推論強度、sandbox、commit／push／PR／mergeの承認境界を維持します。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
 
+## 外部skillの前提
+
+各環境には **Superpowersと `git-commit` がインストールされ、利用するCodexから使用できること**を前提とします。
+`config/dependencies.toml` は共通指示が必要とする外部skill名だけを宣言します。
+
+外部skill自体のインストール、更新、配布元、version／revisionの管理はこのリポジトリの対象外です。
+Codexクライアントごとの版、端末ごとの確認日、実セッションでのrole・model・sandbox確認結果も継続的な台帳にはしません。
+
 ## サブエージェント運用
 
 利用条件と例外は [AGENTS.md](AGENTS.md) の共通方針を参照します。既存5 roleを積極利用し、範囲を切り出せる調査・実装・テスト・レビューは委譲を原則とします。軽微な作業などは親が直接処理し、毎回全roleを起動する運用にはしません。
 
-サブエージェントの利用と各操作の承認は別です。委譲しても変更範囲やcommit／push／PR／merge等の権限は増えません。方針テスト・配置検証の成功と、実際の委譲・並列実行の成功も別です。実動作は [手動確認](docs/manual-verification.md) と [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) で確認します。
+サブエージェントの利用と各操作の承認は別です。委譲しても変更範囲やcommit／push／PR／merge等の権限は増えません。方針テスト・配置検証の成功と、実際の委譲・並列実行の成功も別です。方針変更時など必要な場合は [適用確認](docs/manual-verification.md) と [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) を参照します。
 
 ## 準備
 
@@ -67,7 +75,7 @@ python -m harness doctor [--record]
 | plan | 配布差分と競合を表示。配置先に書き込まない | 0一致、1差分、2競合・不正 |
 | apply | 排他取得後に再評価し、管理対象を反映・検証・記録 | 0成功、2失敗 |
 | verify | 管理対象、反映コミット、旧定義を照合。書き込まない | 0一致、1不一致、2読取等の異常 |
-| doctor | 外部依存・override等を読み取り診断 | 0正常、1未確認・警告、2必須依存不足等 |
+| doctor | 明示した依存パス・override等を読み取り診断 | 0診断対象に問題なし、1実際の警告、2確認できた必須依存不足等 |
 
 `plan` の終了コード1は「反映する差分あり」であり、構文エラーではありません。差分出力には論理IDと操作区分を使い、configやローカル追記の本文を出力しません。`doctor` は通常書き込みません。`--record` を付けた場合だけ診断記録を保存します。
 
@@ -118,22 +126,20 @@ Windows／Macでは上記の `python` を、準備した仮想環境のPython実
 
 ## 反映状態と依存診断
 
-`CODEX_HOME/shared-agents-config/state.json` に原本コミット、管理ファイルのハッシュ、管理skill設定、旧定義、検証結果を保存します。個人config全体や認証情報は保存しません。
+`CODEX_HOME/shared-agents-config/state.json` に原本コミット、管理ファイルのハッシュ、管理skill設定、旧定義、検証結果を保存します。これは安全な同期・競合検出・反映状態の照合に必要な自動管理情報です。端末構成の手作業台帳ではなく、個人config全体や認証情報も保存しません。
 
 ```bash
 python -m harness doctor
 python -m harness doctor --record
 ```
 
-後者は同じディレクトリの `diagnostics.json` に結果を保存します。現在の原本コミットと適用済みコミットは別々に記録します。
+通常の `doctor` は書き込みません。`--record` はトラブル調査で結果を `diagnostics.json` に保存したい場合だけ使用する任意機能です。
 
-`local.example.toml` を参考に、実機で確認した依存元を `CODEX_HOME/shared-agents-config/local.toml` に設定できます。`--local-config` による明示指定も可能です。system／pluginの実際の導入場所を確認して記入し、設定例の値を実測値だと扱わないでください。
+Superpowersや `git-commit` の導入元・版を記録していないだけでは警告にしません。明示的にskillファイルの存在まで診断したい場合だけ、`local.example.toml` を参考に実際の絶対パスをlocal configへ指定します。指定したパスに必須skillが存在しなければ不足として報告します。
 
-診断は `observed`（取得した証拠）、`reported`（ローカル設定で申告）、`not_checked`（未確認）を区別します。plugin cacheの存在はファイルの存在証拠にすぎず、現在のCodexセッションでの利用証拠とはしません。CLIのバージョンからDesktopやIDEのバージョンを推測しません。外部skillの自動インストール、ログイン、モデル問い合わせは行いません。
+global override、project scopeの設定、skill overrideなど、実際に確認できる問題は引き続き警告します。`doctor` の終了コード0は診断対象の範囲に限った結果であり、Codexセッションでのskill読み込み・role起動・model・sandboxの動作保証ではありません。
 
-`git-commit` の導入元は未確認です。実機inventoryで確認してから記録します。Superpowersの6.4.1は以前のREADMEの記録であり、現在両端末で有効と断定する値ではありません。
-
-## テストと実機確認
+## テストと適用確認
 
 ```bash
 python -m pytest -q
@@ -143,4 +149,4 @@ git diff --check
 
 テストは一時Gitリポジトリと一時ホームだけを使用します。CI定義はWindows／macOS・Python 3.11／3.14です。実際の個人設定、認証、モデルは使用しません。
 
-新規Codexセッションでの確認は [docs/manual-verification.md](docs/manual-verification.md)、検証証拠と未確認事項は [docs/compatibility.md](docs/compatibility.md) を参照してください。CI成功、配置成功、実機の読み込み成功は別に記録します。
+各端末への適用手順と問題発生時の確認は [docs/manual-verification.md](docs/manual-verification.md) を参照してください。CI結果はGitHub Actionsを正とし、別のMarkdownへ実行URLや端末別結果を転記しません。自動テストや配置確認の成功を、未確認の実セッション動作まで確認済みとは扱いません。

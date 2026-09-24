@@ -62,15 +62,41 @@ def test_cli_unknown_legacy_is_not_overwritten(sandbox):
 
 def test_cli_doctor_does_not_write_and_record_is_explicit(sandbox):
     first = invoke(sandbox, 'doctor')
-    assert first.returncode == 1
+    assert first.returncode == 0
     assert not sandbox.layout.home.exists()
     result = invoke(sandbox, 'doctor', '--record')
-    assert result.returncode == 1
+    assert result.returncode == 0
     report = json.loads((sandbox.layout.state_dir / 'diagnostics.json').read_text())
     assert report['applied_source_commit'] is None
     assert len(report['source_commit']) == 40
-    assert report['checks'][-1]['evidence_kind'] == 'not_checked'
+    assert all(check['status'] == 'ok' for check in report['checks'])
     assert 'recorded' in result.stdout
+
+
+def test_cli_doctor_returns_warning_only_for_actual_warning(sandbox):
+    path = sandbox.layout.codex_home / 'AGENTS.override.md'
+    path.parent.mkdir(parents=True)
+    path.write_text('local override', encoding='utf-8')
+    result = invoke(sandbox, 'doctor')
+    assert result.returncode == 1
+    assert 'warn global-override' in result.stdout
+
+
+def test_cli_doctor_returns_error_for_explicit_missing_dependency(sandbox, tmp_path):
+    root = tmp_path / 'plugin-skills'
+    root.mkdir()
+    sandbox.write(
+        'config/dependencies.toml',
+        'schema_version=1\nrequired_skills=["superpowers:brainstorming"]\n',
+    )
+    sandbox.layout.state_dir.mkdir(parents=True)
+    sandbox.layout.local_config.write_text(
+        'schema_version=1\n[superpowers]\nskills_root=' + repr(str(root)) + '\n',
+        encoding='utf-8',
+    )
+    result = invoke(sandbox, 'doctor')
+    assert result.returncode == 2
+    assert 'missing superpowers:brainstorming' in result.stdout
 
 
 def test_doctor_record_failure_is_reported(sandbox, monkeypatch, capsys):
@@ -106,5 +132,5 @@ def test_cli_explicit_local_config(sandbox):
     local = sandbox.repo.parent / 'local.toml'
     local.write_text('schema_version=1\n[client]\nkind="desktop"\nversion="1.2.3"\n', encoding='utf-8')
     result = invoke(sandbox, 'doctor', '--local-config', str(local))
-    assert result.returncode == 1
-    assert '1.2.3' in result.stdout
+    assert result.returncode == 0
+    assert '1.2.3' not in result.stdout
