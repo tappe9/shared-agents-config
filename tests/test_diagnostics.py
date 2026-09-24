@@ -1,49 +1,28 @@
-import subprocess
-
 import pytest
 
 from harness import diagnostics
 from harness.content import validate_sources
 
 
-@pytest.fixture(autouse=True)
-def no_installed_cli(monkeypatch):
-    monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: None)
-
-
-def test_missing_cli_is_unknown_not_verified(sandbox):
+def test_missing_inventory_is_not_reported_as_runtime_problem(sandbox):
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    cli = next(item for item in checks if item.name == 'codex-cli')
-    assert cli.status == 'unknown'
-    assert cli.evidence_kind == 'not_checked'
+    names = {item.name for item in checks}
+    assert 'codex-cli' not in names
+    assert 'superpowers-version' not in names
+    assert 'client' not in names
+    assert 'session-inventory' not in names
     assert not sandbox.layout.home.exists()
 
 
-def test_version_is_observed_but_session_is_not(sandbox, monkeypatch):
-    monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: '/fake/codex')
-    monkeypatch.setattr(diagnostics.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0, b'codex-cli 0.155.0-alpha.16\n', b''))
+def test_unobserved_skill_source_is_skipped(sandbox):
+    sandbox.write(
+        'config/dependencies.toml',
+        'schema_version=1\nrequired_skills=["superpowers:brainstorming","git-commit"]\n',
+    )
     checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert next(d for d in checks if d.name == 'codex-cli').status == 'ok'
-    assert next(d for d in checks if d.name == 'session-inventory').status == 'unknown'
-
-
-@pytest.mark.parametrize('output', [b'0.155.0\nPRIVATE', b'PRIVATE value', b'\xff'])
-def test_unexpected_cli_output_is_not_disclosed(sandbox, monkeypatch, output):
-    monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: '/fake/codex')
-    monkeypatch.setattr(diagnostics.subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0, output, b'SECRET'))
-    checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert next(d for d in checks if d.name == 'codex-cli').status == 'warn'
-    assert 'PRIVATE' not in repr(checks) and 'SECRET' not in repr(checks)
-
-
-def test_timeout_is_not_success(sandbox, monkeypatch):
-    monkeypatch.setattr(diagnostics.shutil, 'which', lambda name: '/fake/codex')
-    def timeout(*a, **k):
-        raise subprocess.TimeoutExpired('PRIVATE', 5)
-    monkeypatch.setattr(diagnostics.subprocess, 'run', timeout)
-    checks = diagnostics.inspect_runtime(sandbox.layout)
-    assert next(d for d in checks if d.name == 'codex-cli').status == 'warn'
-    assert 'PRIVATE' not in repr(checks)
+    names = {item.name for item in checks}
+    assert 'superpowers:brainstorming' not in names
+    assert 'git-commit' not in names
 
 
 @pytest.mark.parametrize('content,expected', [(b'', 'ok'), (b' \n', 'ok'), (b'override', 'warn')])
@@ -68,12 +47,21 @@ def test_explicit_missing_skill_is_reported(sandbox, tmp_path):
     assert next(d for d in checks if d.name == 'superpowers:brainstorming').status == 'missing'
 
 
-def test_reported_version_differs_from_documented(sandbox):
-    sandbox.write('config/dependencies.toml', 'schema_version=1\nrequired_skills=[]\n[providers.superpowers]\nlast_documented_version="6.4.1"\n')
+def test_legacy_inventory_values_are_accepted_but_ignored(sandbox):
     sandbox.layout.state_dir.mkdir(parents=True)
-    sandbox.layout.local_config.write_text('schema_version=1\n[superpowers]\nversion="6.5.0"\n')
-    check = next(d for d in diagnostics.inspect_runtime(sandbox.layout) if d.name == 'superpowers-version')
-    assert check.status == 'warn' and check.evidence_kind == 'reported'
+    sandbox.layout.local_config.write_text(
+        'schema_version=1\n'
+        '[superpowers]\n'
+        'version="6.5.0"\n'
+        '[client]\n'
+        'kind="desktop"\n'
+        'version="1.2.3"\n',
+        encoding='utf-8',
+    )
+    checks = diagnostics.inspect_runtime(sandbox.layout)
+    names = {item.name for item in checks}
+    assert 'superpowers-version' not in names
+    assert 'client' not in names
 
 
 def test_malformed_local_config_is_sanitized(sandbox):
