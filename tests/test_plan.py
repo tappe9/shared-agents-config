@@ -110,3 +110,18 @@ def test_source_inside_deployment_root_is_rejected(sandbox):
     layout = resolve_layout(sandbox.repo, home=sandbox.layout.home,
                             codex_home=sandbox.repo / 'managed', env={})
     assert build_plan(layout).problems
+
+
+def test_invalid_role_stops_plan_before_operations(sandbox):
+    sandbox.write(
+        'agents/explorer.toml',
+        'name="explorer"\n'
+        'description="test"\n'
+        'developer_instructions="test"\n'
+        'sandbox_mode="definitely-invalid"\n',
+    )
+    sandbox.commit()
+    plan = build_plan(sandbox.layout)
+    assert any(p.code == 'invalid-role' for p in plan.problems)
+    assert plan.operations == []
+    assert not sandbox.layout.home.exists()

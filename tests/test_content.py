@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pytest
 
 from harness.content import (BEGIN, END, extract_local_suffix, managed_common,
@@ -101,3 +102,65 @@ def test_git_reference_is_resolved_safely(sandbox):
     assert source_files(sandbox.repo, ref=sha)['AGENTS.md'].startswith(b'# Common')
     with pytest.raises(ValueError):
         source_files(sandbox.repo, ref='--help')
+
+
+def _write_role(sandbox, extra=''):
+    sandbox.write(
+        'agents/explorer.toml',
+        'name="explorer"\n'
+        'description="test"\n'
+        'developer_instructions="test"\n' + extra,
+    )
+
+
+@pytest.mark.parametrize('model_line', ['model=123\n', 'model=""\n', 'model="   "\n'])
+def test_role_model_must_be_non_empty_string(sandbox, model_line):
+    _write_role(sandbox, model_line)
+    problems = validate_sources(sandbox.repo)
+    problem = next(p for p in problems if p.code == 'invalid-role')
+    assert problem.target_id == 'codex:agents/explorer.toml'
+    assert 'model' in problem.message
+    assert model_line.strip() not in repr(problems)
+
+
+def test_role_reasoning_effort_rejects_undocumented_value(sandbox):
+    _write_role(sandbox, 'model_reasoning_effort="definitely-invalid"\n')
+    problems = validate_sources(sandbox.repo)
+    problem = next(p for p in problems if p.code == 'invalid-role')
+    assert problem.target_id == 'codex:agents/explorer.toml'
+    assert 'model_reasoning_effort' in problem.message
+    assert 'definitely-invalid' not in repr(problems)
+
+
+def test_role_sandbox_mode_rejects_invalid_value(sandbox):
+    _write_role(sandbox, 'sandbox_mode="definitely-invalid"\n')
+    problems = validate_sources(sandbox.repo)
+    problem = next(p for p in problems if p.code == 'invalid-role')
+    assert problem.target_id == 'codex:agents/explorer.toml'
+    assert 'sandbox_mode' in problem.message
+    assert 'definitely-invalid' not in repr(problems)
+
+
+def test_role_unknown_key_is_rejected_without_exposing_value(sandbox):
+    _write_role(sandbox, 'modle="SECRET_ROLE_VALUE"\n')
+    problems = validate_sources(sandbox.repo)
+    problem = next(p for p in problems if p.code == 'invalid-role')
+    assert problem.target_id == 'codex:agents/explorer.toml'
+    assert 'modle' in problem.message
+    assert 'SECRET_ROLE_VALUE' not in repr(problems)
+
+
+def test_role_accepts_optional_codex_setting_from_pinned_schema(sandbox):
+    _write_role(sandbox, 'model_reasoning_summary="concise"\n')
+    assert validate_sources(sandbox.repo) == []
+
+
+def test_role_optional_model_reasoning_and_sandbox_settings_may_be_omitted(sandbox):
+    _write_role(sandbox)
+    assert validate_sources(sandbox.repo) == []
+
+
+def test_current_repository_role_definitions_validate():
+    root = Path(__file__).resolve().parents[1]
+    invalid_roles = [p for p in validate_sources(root) if p.code == 'invalid-role']
+    assert invalid_roles == []
