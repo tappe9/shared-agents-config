@@ -123,6 +123,8 @@ def read_policy(repo: Path) -> tuple[str, ...]:
     assert_safe_target(repo, path)
     try:
         data = tomllib.loads(path.read_text(encoding='utf-8-sig'))
+        if set(data) != {'schema_version', 'required_skills'}:
+            raise ValueError
         if type(data.get('schema_version')) is not int or data['schema_version'] != 1:
             raise ValueError
         names = data['skills']['disabled_user_dirs']
@@ -246,9 +248,6 @@ def read_dependencies(repo: Path) -> dict:
                 if not name.startswith('superpowers:'):
                     raise ValueError
                 validate_relative_name(name.split(':', 1)[1])
-        providers = data.get('providers', {})
-        if not isinstance(providers, dict) or any(not isinstance(v, dict) for v in providers.values()):
-            raise ValueError
         return data
     except (OSError, ValueError, KeyError, TypeError):
         raise ValueError('invalid-dependency-manifest') from None
