@@ -12,7 +12,7 @@ EXPECTED = {
     "explorer": ("gpt-6-luna", "xhigh", "read-only"),
     "implementer": ("gpt-6-luna", "xhigh", "workspace-write"),
     "reviewer": ("gpt-6-luna", "xhigh", "read-only"),
-    "reviewer_high_risk": ("gpt-6-sol", "high", "read-only"),
+    "reviewer_high_risk": ("gpt-6.1-sol", "high", "read-only"),
     "tester": ("gpt-6-luna", "high", "workspace-write"),
 }
 
@@ -43,7 +43,7 @@ def test_common_policy_keeps_exceptions_and_authority_boundary():
         assert clause in policy
 
 
-def test_common_role_settings_and_allowlist_are_unchanged():
+def test_common_role_settings_and_allowlist_match_policy():
     files = {p.stem: p for p in (ROOT / "agents").glob("*.toml")}
     assert set(files) == set(EXPECTED)
     for name, expected in EXPECTED.items():

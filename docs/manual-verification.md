@@ -10,6 +10,16 @@
 - 認証、MCP、project trust、通知などの管理対象外設定を原本へ取り込まないこと。
 - 実機への適用時は、対象のCodexクライアントを終了すること。
 
+## GPT-6.1 Solへの切り替え
+
+今回のモデル変更は `reviewer_high_risk` の `gpt-6-sol` → `gpt-6.1-sol` だけです。推論強度 `high` と `read-only`、他4 roleのLuna設定は維持します。
+
+1. merge・実機適用前に、対象アカウント・workspace・Codexクライアントの `/model` でGPT-6.1 Solの利用可否を確認します。[公式の設定手順](https://learn.chatgpt.com/docs/developer-settings#change-settings-for-one-run)も参照してください。利用できなければ変更は適用せず、既存のSol設定を維持します。
+2. 利用できる環境だけで、以下の通常手順に従って `plan` → クライアント終了 → `apply` → 再起動 → `verify` を実施します。
+3. 新規セッションで `reviewer_high_risk` に読み取り専用の小さなレビューを依頼し、実際のモデルが `gpt-6.1-sol`、推論強度が `high`、sandboxが `read-only` で起動することを確認します。設定ファイルの値だけを実行結果の証拠にしません。
+
+`validate`・自動テスト・CIは設定と配布処理の検証です。モデルへのアクセスや実セッションの起動成功は保証しません。対象環境が未対応なら、端末の管理ファイルだけを書き換えず、対応確認まで更新を保留します。
+
 ## 通常の適用
 
 ### 1. 原本を確認・準備する

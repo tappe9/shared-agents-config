@@ -16,7 +16,13 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 
 認証ファイル、MCP、project trust、通知、対象外のskill設定は配布原本に取り込みません。プロジェクト間の関係やアプリ固有の制約は、そのプロジェクトの `AGENTS.md` で管理します。個人skillの原本は `skills/` に置き、この管理リポジトリ内の `.agents/skills/` へ複製しません。
 
-既存の5 role、model、推論強度、sandbox、commit／push／PR／mergeの承認境界を維持します。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
+既存の5 role、推論強度、sandbox、commit／push／PR／mergeの承認境界を維持します。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
+
+## モデル構成
+
+通常の4 roleは `gpt-6-luna` を使用し、高リスクレビューの `reviewer_high_risk` だけを `gpt-6.1-sol`（推論強度 `high`、`read-only`）へ更新しています。親エージェントのmodel設定は管理対象外で、変更しません。
+
+[公式モデル仕様](https://developers.openai.com/api/docs/models/gpt-6.1-sol)でモデルIDと `high` の対応を確認しています。ただし、利用可否はアカウント・workspace・対象Codexクライアントに依存します。利用開始前は既存設定を維持し、[適用前の確認](docs/manual-verification.md#gpt-61-solへの切り替え)を終えてからこの変更を適用してください。
 
 ## 外部skillの前提
 
