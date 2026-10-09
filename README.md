@@ -38,6 +38,8 @@ Codexクライアントごとの版、端末ごとの確認日、実セッショ
 
 サブエージェントの利用と各操作の承認は別です。委譲しても変更範囲やcommit／push／PR／merge等の権限は増えません。方針テスト・配置検証の成功と、実際の委譲・並列実行の成功も別です。方針変更時など必要な場合は [適用確認](docs/manual-verification.md) と [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) を参照します。
 
+検証は開発中に対象specと依存consumerを確認し、完了時は対象プロジェクトの検証表にある必須gateを最終状態で確認します。入力と対象内容が同じ成功証拠は再利用でき、詳細は [共通検証方針](AGENTS.md#検証範囲と成功証拠) を参照してください。
+
 ## 準備
 
 Python 3.11以上とGitが必要です。以下はリポジトリ直下で実行します。アプリの通常運用には `requirements.txt`、テストには `requirements-dev.txt` を使用します。依存はtomlkit、PyYAML、pytestです。
