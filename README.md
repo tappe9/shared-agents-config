@@ -40,6 +40,10 @@ Codexクライアントごとの版、端末ごとの確認日、実セッショ
 
 検証は開発中に対象specと依存consumerを確認し、完了時は対象プロジェクトの検証表にある必須gateを最終状態で確認します。入力と対象内容が同じ成功証拠は再利用でき、詳細は [共通検証方針](AGENTS.md#検証範囲と成功証拠) を参照してください。
 
+## worktreeの配置
+
+新しいworktreeは、作成元プロジェクトのGitルート直下 `.worktrees/<topic>` を標準配置先とし、ユーザーの明示指定と適切な既存worktreeを優先します。詳細は [共通方針](AGENTS.md#worktreeの配置方針) を参照してください。この原本変更はアプリの保存先設定や既存worktreeの移動を自動では行いません。実端末への反映は、既存の外部ターミナルでの `apply` → 再起動 → `verify` 手順に従います。
+
 ## 準備
 
 Python 3.11以上とGitが必要です。以下はリポジトリ直下で実行します。アプリの通常運用には `requirements.txt`、テストには `requirements-dev.txt` を使用します。依存はtomlkit、PyYAML、pytestです。

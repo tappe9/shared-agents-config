@@ -5,7 +5,7 @@
 利用条件は `AGENTS.md` の「サブエージェント」に従う。親は初期調査から担当範囲と依存関係を整理し、以下の各段階で適切なroleへ委譲する。子は親が準備・指定した作業ツリーを使い、手順全体の再帰実行や別worktreeの作成を独断で行わない。
 
 1. `git status --short --branch` と worktree 一覧を確認し、既存差分を所有者の作業として保護する。Git 管理外のユーザー設定は、編集前にバックアップと復元手順を用意する。
-2. Git リポジトリでは `superpowers:using-git-worktrees` を使い、clean な起点から隔離 worktree を作る。`.worktrees/` を使う場合は ignore 状態を確認する。そのskillが提案する初期の全体baselineは、既存失敗との切り分けなど必要性がある場合だけ実施する。
+2. Git リポジトリでは `AGENTS.md` の「worktreeの配置方針」と `superpowers:using-git-worktrees` に従い、適切な既存worktreeを再利用するか、clean な起点から隔離 worktree を作る。そのskillが提案する初期の全体baselineは、既存失敗との切り分けなど必要性がある場合だけ実施する。
 3. 作成元に `.env` がある場合だけ、宛先に存在しないことを確認して worktree へコピーする。値は表示せず、追跡・コミットしない。
 4. 設計判断が必要なら `superpowers:brainstorming`、4ステップ以上または複数責務なら `superpowers:writing-plans` を使う。計画は元作業ディレクトリの `.plan/YYYY-MM-DD-HHmm-<topic>.md` に置き、コミットしない。
 5. 機能追加・修正は `superpowers:test-driven-development` を適用する。先に対象specで失敗する再現テスト（RED）を作成・実行し、失敗理由が対象の期待動作を捉えていることを確認してから最小実装を行い、同じ対象で成功（GREEN）を確認する。分担する場合は仕様・期待動作を共有し、`tester` がREDの実行コマンド・終了状態・件数・失敗理由を親へ返す。親が対象を捉えたREDを確認してから `implementer` が実装し、testerは対象回帰結果と証拠を親へ渡す。実装結果に合わせてテストの期待値を変更しない。
