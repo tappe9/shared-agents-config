@@ -151,3 +151,32 @@ def test_cli_invalid_role_stops_validate_plan_and_apply_before_writes(sandbox):
         assert 'modle' in result.stdout
         assert 'SECRET_ROLE_VALUE' not in result.stdout + result.stderr
     assert not sandbox.layout.home.exists()
+
+
+def test_cli_index_flags_are_errors_with_preview(sandbox):
+    from conftest import git
+
+    secret_text = 'PRIVATE_SOURCE_BODY_DO_NOT_PRINT'
+    sandbox.write('agents/explorer.toml',
+                  'name="explorer"\ndescription="' + secret_text +
+                  '"\ndeveloper_instructions="test"\n')
+    sandbox.commit()
+    git(sandbox.repo, 'update-index', '--skip-worktree', 'agents/explorer.toml')
+
+    plan_result = invoke(sandbox, 'plan', '--json')
+    apply_result = invoke(sandbox, 'apply')
+    verify_result = invoke(sandbox, 'verify', '--json')
+    plan_report = json.loads(plan_result.stdout)
+    verify_report = json.loads(verify_result.stdout)
+
+    for result in (plan_result, apply_result, verify_result):
+        output = result.stdout + result.stderr
+        assert secret_text not in output
+        assert str(sandbox.repo) not in output
+        assert 'Traceback' not in result.stderr
+    assert (plan_result.returncode, apply_result.returncode, verify_result.returncode) == (2, 2, 2)
+    assert any(problem['code'] == 'source-index-flags' for problem in plan_report['problems'])
+    assert plan_report['operations']
+    assert 'source-index-flags' in apply_result.stdout
+    assert any(problem['code'] == 'source-index-flags' for problem in verify_report['problems'])
+    assert not sandbox.layout.home.exists()

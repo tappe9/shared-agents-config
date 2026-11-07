@@ -155,3 +155,45 @@ def test_invalid_role_stops_plan_before_operations(sandbox):
     assert any(p.code == 'invalid-role' for p in plan.problems)
     assert plan.operations == []
     assert not sandbox.layout.home.exists()
+
+
+@pytest.mark.parametrize('flag', ['--assume-unchanged', '--skip-worktree', 'both'])
+@pytest.mark.parametrize('path', [
+    'AGENTS.md',
+    'agents/explorer.toml',
+    'skills/sample/SKILL.md',
+    'config/skills-policy.toml',
+    'config/dependencies.toml',
+    'config/codex-config.schema.json',
+])
+def test_index_flags_rejected_with_preview(sandbox, flag, path):
+    if flag in ('--assume-unchanged', 'both'):
+        git(sandbox.repo, 'update-index', '--assume-unchanged', path)
+    if flag in ('--skip-worktree', 'both'):
+        git(sandbox.repo, 'update-index', '--skip-worktree', path)
+
+    plan = build_plan(sandbox.layout)
+
+    assert any(problem.code == 'source-index-flags' for problem in plan.problems)
+    assert plan.operations
+
+
+def test_invalid_flagged_source_reports_both_problems(sandbox):
+    path = 'agents/explorer.toml'
+    sandbox.write(
+        path,
+        'name="explorer"\n'
+        'description="test"\n'
+        'developer_instructions="test"\n'
+        'modle="SECRET_ROLE_VALUE"\n',
+    )
+    sandbox.commit()
+    git(sandbox.repo, 'update-index', '--assume-unchanged', path)
+
+    plan = build_plan(sandbox.layout)
+
+    codes = {problem.code for problem in plan.problems}
+    assert 'source-index-flags' in codes
+    assert 'invalid-role' in codes
+    assert plan.operations == []
+    assert 'SECRET_ROLE_VALUE' not in repr(plan)

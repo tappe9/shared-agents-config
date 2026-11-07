@@ -1,3 +1,5 @@
+import json
+import os
 import tomllib
 import pytest
 
@@ -95,4 +97,67 @@ def test_inline_config_stays_valid_when_adding_override(tmp_path, original):
     updated = merge_skill_overrides(original, {target: False})
     parsed = tomllib.loads(updated.decode())
     assert any(e['path'] == str(target) and e['enabled'] is False for e in parsed['skills']['config'])
+    assert merge_skill_overrides(updated, {target: False}) == updated
+
+
+def test_hardlinked_scopes_remain_separate(tmp_path):
+    plugin_path = tmp_path / '.codex/plugins/example/SKILL.md'
+    system_path = tmp_path / '.codex/skills/.system/example/SKILL.md'
+    user_path = tmp_path / '.agents/skills/example/SKILL.md'
+    plugin_path.parent.mkdir(parents=True)
+    system_path.parent.mkdir(parents=True)
+    user_path.parent.mkdir(parents=True)
+    plugin_path.write_text('shared inode')
+    try:
+        os.link(plugin_path, user_path)
+    except OSError as error:
+        pytest.skip(f'別scope間のhardlinkを作成できない: {error.__class__.__name__}')
+    system_path.write_text('system skill')
+
+    original = (
+        f'# keep-plugin-comment\n[[skills.config]]\npath = {json.dumps(str(plugin_path))}\n'
+        'enabled = true\nmetadata = "retain"\n\n'
+        f'# keep-system-comment\n[[skills.config]]\npath = {json.dumps(str(system_path))}\n'
+        'enabled = true\nmetadata = "system-retain"\n'
+    ).encode()
+    initial_entries = tomllib.loads(original.decode())['skills']['config']
+    assert all(entry['path'] != str(user_path) for entry in initial_entries)
+    assert plugin_path.samefile(user_path)
+
+    updated = merge_skill_overrides(original, {user_path: False})
+    entries = tomllib.loads(updated.decode())['skills']['config']
+    by_path = {entry['path']: entry for entry in entries}
+    assert by_path[str(plugin_path)]['enabled'] is True
+    assert by_path[str(plugin_path)]['metadata'] == 'retain'
+    assert by_path[str(system_path)]['enabled'] is True
+    assert by_path[str(system_path)]['metadata'] == 'system-retain'
+    assert by_path[str(user_path)]['enabled'] is False
+    assert b'# keep-plugin-comment' in updated
+    assert b'# keep-system-comment' in updated
+
+
+def test_same_path_override_is_stable_when_parent_scan_fails(tmp_path, monkeypatch):
+    target = tmp_path / 'skills/example/SKILL.md'
+    target.parent.mkdir(parents=True)
+    target.write_text('skill')
+    original = (
+        f'[[skills.config]]\npath = {json.dumps(str(target))}\n'
+        'enabled = true\n'
+    ).encode()
+    assert tomllib.loads(original.decode())['skills']['config'][0]['path'] == str(target)
+
+    original_scandir = os.scandir
+
+    def denied_scandir(path):
+        if os.fspath(path) == os.fspath(target.parent):
+            raise PermissionError('injected parent scan denial')
+        return original_scandir(path)
+
+    monkeypatch.setattr(os, 'scandir', denied_scandir)
+    updated = merge_skill_overrides(original, {target: False})
+    entries = tomllib.loads(updated.decode())['skills']['config']
+    assert len(entries) == 1
+    assert entries[0]['path'] == str(target)
+    assert entries[0]['enabled'] is False
+    assert read_overrides(updated, [target]) == {target: False}
     assert merge_skill_overrides(updated, {target: False}) == updated

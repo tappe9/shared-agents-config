@@ -9,6 +9,9 @@
 - 共通ハーネスの変更はこのリポジトリの原本へ先に反映すること。
 - 認証、MCP、project trust、通知などの管理対象外設定を原本へ取り込まないこと。
 - 実機への適用時は、対象のCodexクライアントを終了すること。
+- ローカルコマンドはリポジトリのGitルートで実行し、[READMEの準備節](../README.md#準備)で作成したvenvのPythonを使うこと。activateは不要です。
+
+Windows / PowerShellでは `.\.venv\Scripts\python.exe`、macOSでは `./.venv/bin/python` を指定します。Codex終了後の外部ターミナルでも、原本リポジトリのGitルートへ移動して同じvenvを使います。
 
 ## GPT-6.1 Solへの切り替え
 
@@ -35,9 +38,14 @@ git remote -v
 
 原本を変更したら、まず次を実行します。
 
+```powershell
+.\.venv\Scripts\python.exe -m harness validate
+.\.venv\Scripts\python.exe -m harness plan --json
+```
+
 ```bash
-python -m harness validate
-python -m harness plan
+./.venv/bin/python -m harness validate
+./.venv/bin/python -m harness plan --json
 ```
 
 - `validate`: 原本の構文・参照関係を検証します。
@@ -51,8 +59,12 @@ commit、push、PR、mergeは既存の承認境界に従います。原本を先
 
 対象のCodexクライアントを終了します。その後、Codexとは別のPowerShell／Terminalから実行します。
 
+```powershell
+.\.venv\Scripts\python.exe -m harness apply
+```
+
 ```bash
-python -m harness apply
+./.venv/bin/python -m harness apply
 ```
 
 `apply` は管理対象だけを反映します。Codex稼働中に、自分自身が読み込んでいる管理対象へ直接 `apply` する方式は標準手順として動作確認済みとは扱いません。
@@ -61,8 +73,12 @@ python -m harness apply
 
 Codexを再起動した後、次を実行して配置状態を確認します。
 
+```powershell
+.\.venv\Scripts\python.exe -m harness verify
+```
+
 ```bash
-python -m harness verify
+./.venv/bin/python -m harness verify
 ```
 
 `verify` は反映状態、競合、旧定義の残存を確認する読み取り専用の検証です。成功しても、新しいCodexセッションが変更後の設定を読み込んだことまで証明するものではありません。
@@ -75,8 +91,12 @@ python -m harness verify
 
 必要に応じて次を実行します。
 
+```powershell
+.\.venv\Scripts\python.exe -m harness doctor
+```
+
 ```bash
-python -m harness doctor
+./.venv/bin/python -m harness doctor
 ```
 
 `doctor` は、明示された依存パス、global override、project scopeの設定、skill overrideなど、
@@ -86,7 +106,15 @@ python -m harness doctor
 記録していないだけでは警告にしません。
 
 明示的に依存ファイルの場所も調べたい場合だけ、`local.example.toml` を参考にlocal configを設定します。
-`doctor --record` はトラブル調査で診断結果を保存したい場合の任意機能であり、通常の適用手順には含めません。
+`doctor --record` はトラブル調査で診断結果を保存したい場合の任意機能であり、通常の適用手順には含めません。必要な場合も、上記のOS別venv Pythonを指定し、トラブル調査のためにのみオプションを追加します。
+
+```powershell
+.\.venv\Scripts\python.exe -m harness doctor --record
+```
+
+```bash
+./.venv/bin/python -m harness doctor --record
+```
 
 ## 実動作確認
 
