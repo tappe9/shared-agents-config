@@ -226,6 +226,71 @@ def test_atomic_replace_failure_removes_temporary_file(sandbox, monkeypatch):
     assert sorted(p.name for p in target.parent.iterdir()) == ['AGENTS.md']
 
 
+def test_hidden_source_change_is_not_applied(sandbox):
+    path = 'agents/explorer.toml'
+    git(sandbox.repo, 'update-index', '--assume-unchanged', path)
+    sandbox.write(
+        path,
+        'name="explorer"\n'
+        'description="hidden update"\n'
+        'developer_instructions="test"\n',
+    )
+    before = snapshot(sandbox.layout.home)
+
+    result = apply_plan(sandbox.layout, build_plan(sandbox.layout))
+
+    assert result.problems
+    assert result.changed_ids == []
+    assert snapshot(sandbox.layout.home) == before == {}
+    assert not (sandbox.layout.state_dir / 'state.json').exists()
+
+
+def test_index_flag_added_after_plan_stops_apply(sandbox):
+    plan = build_plan(sandbox.layout)
+    before = snapshot(sandbox.layout.home)
+    git(sandbox.repo, 'update-index', '--skip-worktree', 'AGENTS.md')
+
+    result = apply_plan(sandbox.layout, plan)
+
+    assert result.problems
+    assert result.changed_ids == []
+    assert snapshot(sandbox.layout.home) == before == {}
+    assert not (sandbox.layout.state_dir / 'state.json').exists()
+
+
+@pytest.mark.parametrize('has_previous_state', [False, True])
+def test_index_flag_added_during_apply_keeps_previous_state(
+        sandbox, monkeypatch, has_previous_state):
+    if has_previous_state:
+        apply(sandbox)
+        state_path = sandbox.layout.state_dir / 'state.json'
+        previous_state = state_path.read_bytes()
+        sandbox.write('AGENTS.md', '# Updated common\nAllowed `agent_type`: `explorer`\n')
+        sandbox.commit()
+    plan = build_plan(sandbox.layout)
+    original = sync.atomic_write
+    flag_added = False
+
+    def add_flag_after_target_write(root, target, data, expected):
+        nonlocal flag_added
+        original(root, target, data, expected)
+        if not flag_added and target.name != 'state.json':
+            git(sandbox.repo, 'update-index', '--assume-unchanged', 'AGENTS.md')
+            flag_added = True
+
+    monkeypatch.setattr(sync, 'atomic_write', add_flag_after_target_write)
+
+    result = apply_plan(sandbox.layout, plan)
+
+    assert flag_added
+    assert any(problem.code == 'source-changed' for problem in result.problems)
+    state_path = sandbox.layout.state_dir / 'state.json'
+    if has_previous_state:
+        assert state_path.read_bytes() == previous_state
+    else:
+        assert not state_path.exists()
+
+
 @pytest.mark.skipif(os.name != 'nt', reason='Windows sharing-mode verification')
 def test_windows_file_in_use_does_not_record_success(sandbox):
     import ctypes

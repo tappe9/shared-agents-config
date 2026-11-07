@@ -249,6 +249,52 @@ def _validate_role_definition(name: str, data: dict, roles: set[str],
     return [_schema_problem(name, errors[0])] if errors else []
 
 
+def source_index_flag_problems(repo: Path) -> list[Problem]:
+    entries = git_bytes(
+        repo, 'ls-files', '-v', '-z', '--', 'AGENTS.md', 'agents', 'skills',
+        'config/skills-policy.toml', 'config/dependencies.toml',
+        'config/codex-config.schema.json',
+    )
+    if entries and not entries.endswith(b'\0'):
+        raise ValueError('invalid-source-index')
+
+    flagged_ids: set[str] = set()
+    for entry in entries.split(b'\0'):
+        if not entry:
+            continue
+        if len(entry) < 3 or entry[1:2] != b' ':
+            raise ValueError('invalid-source-index')
+        tag, raw_name = entry[:1], entry[2:]
+        if not (tag.islower() or tag.upper() == b'S'):
+            continue
+        name = raw_name.decode('utf-8')
+        parts = name.split('/')
+        if not name or any(not part for part in parts):
+            raise ValueError('invalid-source-index')
+        for part in parts:
+            validate_relative_name(part)
+        if name == 'AGENTS.md' or name.startswith('agents/'):
+            target_id = 'codex:' + name
+        elif name.startswith('skills/'):
+            target_id = 'skills:' + name[len('skills/'):]
+        elif name in {
+            'config/skills-policy.toml', 'config/dependencies.toml',
+            'config/codex-config.schema.json',
+        }:
+            target_id = 'config:' + name[len('config/'):]
+        else:
+            raise ValueError('invalid-source-index')
+        flagged_ids.add(target_id)
+
+    return [
+        Problem(
+            'source-index-flags', target_id,
+            'Managed source has assume-unchanged or skip-worktree index flags.',
+        )
+        for target_id in sorted(flagged_ids)
+    ]
+
+
 def validate_sources(repo: Path) -> list[Problem]:
     problems: list[Problem] = []
     try:

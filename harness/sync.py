@@ -9,7 +9,8 @@ from pathlib import Path, PurePosixPath
 
 from .config_merge import merge_skill_overrides, read_overrides
 from .content import (canonical_text, commit_sha, extract_local_suffix, git_bytes,
-                      managed_common, read_policy, render_agents, source_files, validate_sources)
+                      managed_common, read_policy, render_agents,
+                      source_files, source_index_flag_problems, validate_sources)
 from .paths import Layout, Problem, assert_safe_target, validate_relative_name
 
 
@@ -205,8 +206,11 @@ def build_plan(layout: Layout, *, adopt_from: str | None = None) -> SyncPlan:
         _check_layout(layout)
         plan.source_commit = commit_sha(layout.repo)
         plan.source_dirty = bool(git_bytes(layout.repo, 'status', '--porcelain', '-z', '--untracked-files=all'))
-        plan.problems.extend(validate_sources(layout.repo))
-        if plan.problems:
+        validation_problems = validate_sources(layout.repo)
+        index_flag_problems = source_index_flag_problems(layout.repo)
+        plan.problems.extend(validation_problems)
+        plan.problems.extend(index_flag_problems)
+        if validation_problems:
             return plan
         try:
             plan.state, plan.state_before = load_state(layout)
@@ -329,7 +333,8 @@ def apply_plan(layout: Layout, plan: SyncPlan) -> ApplyResult:
         current_id = 'deployment'
         result.problems.extend(_verify_operations(layout, fresh))
         if (commit_sha(layout.repo) != fresh.source_commit or
-                git_bytes(layout.repo, 'status', '--porcelain', '-z', '--untracked-files=all')):
+                git_bytes(layout.repo, 'status', '--porcelain', '-z', '--untracked-files=all') or
+                source_index_flag_problems(layout.repo)):
             result.problems.append(Problem('source-changed', 'source', 'Source changed while applying.'))
         if result.problems:
             return result
