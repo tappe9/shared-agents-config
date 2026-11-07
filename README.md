@@ -47,6 +47,7 @@ Codexクライアントごとの版、端末ごとの確認日、実セッショ
 ## 準備
 
 Python 3.11以上とGitが必要です。以下はリポジトリ直下で実行します。アプリの通常運用には `requirements.txt`、テストには `requirements-dev.txt` を使用します。依存はtomlkit、PyYAML、pytestです。
+venvを作成する前のPython確認・作成コマンドだけはホストのPythonを使います。作成後のローカルCLIとテストでは、以降の例のようにvenv内のPythonを指定します。
 
 ### Windows / PowerShell
 
@@ -71,12 +72,40 @@ python3 -m venv .venv
 
 ## コマンド
 
-```text
-python -m harness validate
-python -m harness plan [--json] [--adopt-from COMMIT]
-python -m harness apply [--adopt-from COMMIT]
-python -m harness verify [--json]
-python -m harness doctor [--record]
+以下はリポジトリのGitルートで実行します。activateは不要です。これらのvenv例はローカル用で、CIではworkflowが選んだPythonを使います。Codex終了後に開く外部ターミナルでも、同じGitルートへ移動して同じvenvを使います。
+
+### Windows / PowerShell
+
+```powershell
+.\.venv\Scripts\python.exe -m harness validate
+.\.venv\Scripts\python.exe -m harness plan --json
+.\.venv\Scripts\python.exe -m harness apply
+.\.venv\Scripts\python.exe -m harness verify
+.\.venv\Scripts\python.exe -m harness doctor
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+### macOS
+
+```bash
+./.venv/bin/python -m harness validate
+./.venv/bin/python -m harness plan --json
+./.venv/bin/python -m harness apply
+./.venv/bin/python -m harness verify
+./.venv/bin/python -m harness doctor
+./.venv/bin/python -m pytest -q
+```
+
+`doctor --record` は、トラブル調査で診断結果を保存する場合だけ任意で付けます。初回移行の `--adopt-from COMMIT` の例は下記を参照してください。
+
+トラブル調査の結果を記録するときだけ、次のように実行します。
+
+```powershell
+.\.venv\Scripts\python.exe -m harness doctor --record
+```
+
+```bash
+./.venv/bin/python -m harness doctor --record
 ```
 
 全サブコマンドで `--repo`、`--home`、`--codex-home`、`--local-config` を指定できます。オプションはサブコマンドの後に記述します。実機では、Codexが実際に使用しているホーム・CODEX_HOMEへ合わせてください。テストでは `--home` と `--codex-home` の両方を一時領域へ向けます。
@@ -97,13 +126,17 @@ python -m harness doctor [--record]
 
 既に共通AGENTSと端末ローカルの追記が混在している場合は、旧原本のコミットを根拠として移行します。今回調査した旧原本は `5c3b08a63dfc5bd8f81581c4bc078e9df712a12f` ですが、両端末がこの版であると断定せず、実際に一致するコミットを指定します。
 
-```bash
-python -m harness plan --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
-python -m harness apply --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
-python -m harness verify
+```powershell
+.\.venv\Scripts\python.exe -m harness plan --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
+.\.venv\Scripts\python.exe -m harness apply --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
+.\.venv\Scripts\python.exe -m harness verify
 ```
 
-Windows／Macでは上記の `python` を、準備した仮想環境のPython実行ファイルへ置き換えてください。
+```bash
+./.venv/bin/python -m harness plan --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
+./.venv/bin/python -m harness apply --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
+./.venv/bin/python -m harness verify
+```
 
 旧コミットはローカルGitから読み取ります。ネットワーク取得を自動実行しません。旧AGENTSのprefixと一致する場合だけ後続部分を保持します。比較ではLF／CRLFと先頭BOMの差を許容し、本文の差を勝手に吸収しません。一致しない場合は停止して境界を確認します。
 
@@ -137,12 +170,12 @@ Windows／Macでは上記の `python` を、準備した仮想環境のPython実
 
 ### 更新と適用の流れ
 
-1. 原本を変更し、`python -m harness validate` と `python -m harness plan` で構文・参照・配布差分を確認します。
+1. 原本を変更し、上記コマンド節のvenv Pythonで `validate` と `plan` を実行して構文・参照・配布差分を確認します。
 2. commit、push、PR、mergeは既存の承認境界に従います。原本優先のルールはこれらの操作を自動承認しません。特に、`apply` がcleanな原本を必要とすることを理由に未承認commitを行いません。
 3. 適用するcommitが確定したら作業ツリーをcleanにし、そのcommitから `plan` を再実行して最終差分を確認します。
 4. 対象のCodexクライアントを終了します。Codex稼働中に自分自身が使用中の管理対象へ反映する方法は、標準手順として動作確認済みとは扱いません。
-5. Codexとは別のPowerShell／Terminalから `python -m harness apply` を実行します。
-6. Codexを再起動し、`python -m harness verify` で配置状態を確認します。設定変更の性質上必要な場合だけ、新規セッションで実動作も確認します。
+5. Codexとは別のPowerShell／Terminalを開き、原本リポジトリのGitルートへ移動して、上記コマンド節と同じvenv Pythonで `apply` を実行します。activateは不要です。
+6. Codexを再起動し、同じvenv Pythonで `verify` を実行して配置状態を確認します。設定変更の性質上必要な場合だけ、新規セッションで実動作も確認します。
 
 Codexは原本の更新、`validate`、`plan`、適用コマンドの準備までは行えます。実端末への `apply` は対象クライアント終了後の外部ターミナルを標準とします。`verify` の成功は配置状態の整合を示しますが、新しいCodexセッションが設定を読み込んだことまで保証するものではありません。
 
@@ -166,12 +199,7 @@ Codexは原本の更新、`validate`、`plan`、適用コマンドの準備ま�
 
 `CODEX_HOME/shared-agents-config/state.json` に原本コミット、管理ファイルのハッシュ、管理skill設定、旧定義、検証結果を保存します。これは安全な同期・競合検出・反映状態の照合に必要な自動管理情報です。端末構成の手作業台帳ではなく、個人config全体や認証情報も保存しません。
 
-```bash
-python -m harness doctor
-python -m harness doctor --record
-```
-
-通常の `doctor` は書き込みません。`--record` はトラブル調査で結果を `diagnostics.json` に保存したい場合だけ使用する任意機能です。
+通常の `doctor` は上記コマンド節のOS別venv Pythonで実行し、書き込みません。`--record` はトラブル調査で結果を `diagnostics.json` に保存したい場合だけ使用する任意機能です。
 
 Superpowersや `git-commit` の導入元・版を記録していないだけでは警告にしません。明示的にskillファイルの存在まで診断したい場合だけ、`local.example.toml` を参考に実際の絶対パスをlocal configへ指定します。指定したパスに必須skillが存在しなければ不足として報告します。
 
@@ -179,11 +207,7 @@ global override、project scopeの設定、skill overrideなど、実際に確�
 
 ## テストと適用確認
 
-```bash
-python -m pytest -q
-python -m harness validate
-git diff --check
-```
+`pytest -q` と `validate` は上記コマンド節のOS別venv Pythonで実行します。文書差分は `git diff --check` で確認します。
 
 テストは一時Gitリポジトリと一時ホームだけを使用します。CI定義はWindows／macOS・Python 3.11／3.14です。実際の個人設定、認証、モデルは使用しません。
 

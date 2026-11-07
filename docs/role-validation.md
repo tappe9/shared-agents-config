@@ -2,7 +2,7 @@
 
 ## 目的
 
-`agents/*.toml` の誤設定を、端末へ配布する前に `python -m harness validate` とCIで検出します。
+`agents/*.toml` の誤設定を、端末へ配布する前にvenvのPythonで `harness validate` とCIで検出します。ローカルではREADMEの準備節でvenvを作成し、リポジトリのGitルートで使います。activateは不要です。
 静的検証の成功は、モデルが契約上利用可能であることや、実際のsubagent起動成功を保証しません。
 
 ## 固定しているCodex仕様
@@ -34,5 +34,21 @@ Codex更新に合わせて検証基準を更新する場合だけ、次を同じ
 1. 採用する `openai/codex` commitを決める。
 2. そのcommitの `codex-rs/core/config.schema.json` で `config/codex-config.schema.json` を置き換える。
 3. この文書のcommit SHAと、必要に応じて `model_reasoning_effort` の許可値を更新する。
-4. `python -m harness validate` と `python -m pytest -q` を実行する。
+4. 下記のOS別ローカルコマンドで `harness validate` と `pytest -q` を実行する。
 5. Schema更新とrole設定変更は分けてレビューできるよう、意図しないmodel・推論強度・sandbox変更を含めない。
+
+## ローカルコマンド
+
+### Windows / PowerShell
+
+```powershell
+.\.venv\Scripts\python.exe -m harness validate
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+### macOS
+
+```bash
+./.venv/bin/python -m harness validate
+./.venv/bin/python -m pytest -q
+```
