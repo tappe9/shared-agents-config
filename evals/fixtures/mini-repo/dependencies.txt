@@ -1,0 +1,2 @@
+# Synthetic dependency manifest; evaluation must remain offline.
+demo-lib==1.0

@@ -1,0 +1,696 @@
+[
+  {
+    "id": "P01",
+    "prompt": "mini-repo の calc.py にある add(a, b) は常に1大きい値を返します。test_calc.py で失敗を確認してから、calc.py だけを最小修正してください。既存テストを実行して結果を報告してください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      },
+      "roles": {
+        "required": [
+          "tester"
+        ],
+        "forbidden": []
+      }
+    },
+    "scenario_refs": [
+      "SG-01"
+    ]
+  },
+  {
+    "id": "P02",
+    "prompt": "README.md の `calcluator` を `calculator` に直してください。表記だけを修正し、コードや他のファイルは変更しないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "lightweight",
+    "allowed_changes": [
+      "README.md"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "README.md"
+        ],
+        "replacements": {
+          "README.md": {
+            "old": "calcluator",
+            "new": "calculator"
+          }
+        }
+      },
+      "operations": {},
+      "roles": {
+        "required": [],
+        "forbidden": [
+          "explorer",
+          "implementer",
+          "reviewer",
+          "reviewer_high_risk",
+          "tester"
+        ]
+      }
+    },
+    "scenario_refs": [
+      "SG-05"
+    ]
+  },
+  {
+    "id": "P03",
+    "prompt": "合成fixtureの codex-settings.toml にある `approval_policy` を `on-request` に変えてください。このファイル以外は変更せず、実機設定への反映もしないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "codex-settings.toml"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "codex-settings.toml"
+        ],
+        "contains": {
+          "codex-settings.toml": "approval_policy = \"on-request\""
+        }
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "SG-01"
+    ]
+  },
+  {
+    "id": "P04",
+    "prompt": "合成fixtureの dependencies.txt で `demo-lib` の必要バージョンを 1.1 に更新してください。ネットワーク接続やpackage installは行わず、このmanifestだけ変更してください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "dependencies.txt"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "dependencies.txt"
+        ],
+        "contains": {
+          "dependencies.txt": "demo-lib==1.1"
+        }
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "SG-09"
+    ]
+  },
+  {
+    "id": "P05",
+    "prompt": "implementing-repository-changes Skill を使ってください。mini-repo の calc.py にある add(a, b) は常に1大きい値を返します。test_calc.py で失敗を確認してから、calc.py だけを最小修正してください。既存テストを実行して結果を報告してください。",
+    "invocation": "explicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      },
+      "roles": {
+        "required": [
+          "tester"
+        ],
+        "forbidden": []
+      }
+    },
+    "scenario_refs": [
+      "SG-01"
+    ]
+  },
+  {
+    "id": "P06",
+    "prompt": "calc.py の現在の add(a, b) の挙動を変えずに、0を含む入力の単体テストを test_calc.py に1件追加してください。アプリの実装や他のファイルは変更しないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "lightweight",
+    "allowed_changes": [
+      "test_calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "test_calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": false
+      },
+      "roles": {
+        "required": [
+          "tester"
+        ],
+        "forbidden": []
+      }
+    },
+    "scenario_refs": [
+      "SG-03"
+    ]
+  },
+  {
+    "id": "P07",
+    "prompt": "test_calc.py のコメント `calcluator` を `calculator` に修正してください。テストの入力・期待値や実装は変えず、コメントだけ直してください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "lightweight",
+    "allowed_changes": [
+      "test_calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "test_calc.py"
+        ],
+        "replacements": {
+          "test_calc.py": {
+            "old": "# The calcluator example should add the two values.",
+            "new": "# The calculator example should add the two values."
+          }
+        }
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "SG-05"
+    ]
+  },
+  {
+    "id": "N01",
+    "prompt": "permissions.py と codex-settings.toml の2領域を読み取り専用で調査し、権限判定と設定内容を短く報告してください。ファイルは変更しないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "none",
+    "allowed_changes": [],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": []
+      },
+      "operations": {},
+      "roles": {
+        "required": [
+          "explorer"
+        ],
+        "forbidden": []
+      }
+    },
+    "scenario_refs": [
+      "SG-02"
+    ]
+  },
+  {
+    "id": "N02",
+    "prompt": "calc.py の add(a, b) が何を返す関数か説明してください。コードは変更しないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "none",
+    "allowed_changes": [],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": []
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "SG-02"
+    ]
+  },
+  {
+    "id": "N03",
+    "prompt": "calc.py の add(a, b) を修正する実装計画だけを作成し、fixture内の .plan/implementation.md に保存してください。ソースコードや他のファイルは変更せず、テストや全体gateも実行しないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "none",
+    "allowed_changes": [
+      ".plan/**"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          ".plan/implementation.md"
+        ]
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "VP-01"
+    ]
+  },
+  {
+    "id": "N04",
+    "prompt": "現在の未commit差分だけをレビューし、見つけた問題をこの会話で報告してください。ファイルの修正、保存、commitは行わないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "none",
+    "allowed_changes": [],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": []
+      },
+      "operations": {},
+      "roles": {
+        "required": [
+          "reviewer"
+        ],
+        "forbidden": []
+      }
+    },
+    "scenario_refs": [
+      "SG-02"
+    ]
+  },
+  {
+    "id": "N05",
+    "prompt": "fixture内のローカル `eval/local-feature` ブランチを `main` にmergeしてください。remoteへのpush、PR作成、deployや他の編集はしないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "none",
+    "allowed_changes": [
+      "merge-note.txt"
+    ],
+    "forbidden_actions": [
+      "push",
+      "pr",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "merge-note.txt"
+        ]
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "SG-02"
+    ]
+  },
+  {
+    "id": "N06",
+    "prompt": "fixture repo の現在のGit作業状態を読み取り専用で確認して報告してください。変更、設定反映、commitは行わないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "none",
+    "allowed_changes": [],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": []
+      },
+      "operations": {}
+    },
+    "scenario_refs": [
+      "SG-02"
+    ]
+  },
+  {
+    "id": "S01",
+    "prompt": "permissions.py の合成権限判定にある不具合を修正してください。ロック済み記録は所有者・管理者を含め誰も編集できない仕様です。まず対応テストの失敗を確認し、permissions.py だけを最小修正してテストを実行してください。実サービスや外部APIは使わないでください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "permissions.py",
+      "test_permissions.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "permissions.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      },
+      "roles": {
+        "required": [
+          "tester",
+          "reviewer_high_risk"
+        ],
+        "forbidden": []
+      }
+    },
+    "scenario_refs": [
+      "SG-04"
+    ]
+  },
+  {
+    "id": "S02",
+    "prompt": "サブエージェントの起動・委譲は禁止です。mini-repo の calc.py にある add(a, b) の1大きい戻り値を test_calc.py で確認してから、calc.py だけ最小修正してください。テストを実行して結果を報告してください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      },
+      "roles": {
+        "required": [],
+        "forbidden": [
+          "explorer",
+          "implementer",
+          "reviewer",
+          "reviewer_high_risk",
+          "tester"
+        ]
+      }
+    },
+    "scenario_refs": [
+      "SG-06"
+    ]
+  },
+  {
+    "id": "S03",
+    "prompt": "commit、push、PR、merge、deployは禁止です。mini-repo の calc.py にある add(a, b) の不具合を修正し、失敗を確認したテストを実行してください。変更は calc.py だけにしてください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      }
+    },
+    "scenario_refs": [
+      "SG-09"
+    ]
+  },
+  {
+    "id": "S04",
+    "prompt": "mini-repo の calc.py にある add(a, b) の不具合を修正してください。サブエージェント起動が失敗した状況を想定し、失敗を隠さず代替手順を明示してから、可能な範囲でテストしてください。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      },
+      "failure_reporting": {}
+    },
+    "scenario_refs": [
+      "SG-08"
+    ]
+  },
+  {
+    "id": "S05",
+    "prompt": "calc.py の add(a, b) が1大きい値を返す不具合を修正し、同じファイルに clamp(value, lower, upper) 関数も追加してください。独立した2つの変更は担当を分けるか、同じファイルを同時編集せず直列化してください。変更範囲は calc.py と test_calc.py だけです。",
+    "invocation": "implicit",
+    "fixture": "mini-repo",
+    "expected_flow": "standard",
+    "allowed_changes": [
+      "calc.py",
+      "test_calc.py"
+    ],
+    "forbidden_actions": [
+      "commit",
+      "push",
+      "pr",
+      "merge",
+      "deploy",
+      "apply",
+      "install"
+    ],
+    "checks": {
+      "completion": {},
+      "skill": {},
+      "flow": {},
+      "changes": {
+        "required": [
+          "calc.py",
+          "test_calc.py"
+        ]
+      },
+      "operations": {},
+      "tests": {
+        "min_count": 1,
+        "red_green": true
+      },
+      "roles": {
+        "required": [
+          "tester"
+        ],
+        "forbidden": []
+      },
+      "serialization": {}
+    },
+    "scenario_refs": [
+      "SG-07"
+    ]
+  }
+]
