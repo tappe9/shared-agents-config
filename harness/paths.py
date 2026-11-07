@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import stat
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -74,9 +75,77 @@ def assert_safe_target(root: Path, target: Path) -> None:
 
 
 def same_path(left: Path, right: Path) -> bool:
-    if os.path.normcase(os.path.abspath(left)) == os.path.normcase(os.path.abspath(right)):
-        return True
+    left, right = Path(os.path.abspath(left)), Path(os.path.abspath(right))
     try:
-        return left.samefile(right) and not is_link(left) and not is_link(right)
+        left.lstat()
+    except FileNotFoundError:
+        left_missing = True
     except (OSError, ValueError):
         return False
+    else:
+        left_missing = False
+    try:
+        right.lstat()
+    except FileNotFoundError:
+        right_missing = True
+    except (OSError, ValueError):
+        return False
+    else:
+        right_missing = False
+
+    if left_missing or right_missing:
+        # 存在しないパスでは従来の字句比較を保ち、既存パスへの表記差は実体を調べる。
+        return left_missing and right_missing and (
+            os.path.normcase(str(left)) == os.path.normcase(str(right)))
+
+    # 同じ綴りの既存パスは一覧権限に依存させず、symlinkや確認不能な経路は拒否する。
+    if str(left) == str(right):
+        return not _has_link_component(left)
+
+    left_entry = _directory_entry_identity(left)
+    right_entry = _directory_entry_identity(right)
+    return left_entry is not None and left_entry == right_entry
+
+
+def _has_link_component(path: Path) -> bool:
+    try:
+        return any(is_link(component) for component in (path, *path.parents))
+    except (OSError, ValueError):
+        return True
+
+
+def _directory_entry_identity(path: Path) -> tuple[int, int, str] | None:
+    try:
+        # 親ディレクトリのsymlink経由を受け入れると、別scopeのaliasまで統合し得る。
+        if _has_link_component(path):
+            return None
+        parent_info = path.parent.stat()
+        if not stat.S_ISDIR(parent_info.st_mode):
+            return None
+        with os.scandir(path.parent) as scanned:
+            entries = list(scanned)
+    except (OSError, ValueError):
+        return None
+
+    exact = [entry for entry in entries if entry.name == path.name]
+    if len(exact) == 1:
+        return parent_info.st_dev, parent_info.st_ino, exact[0].name
+    if exact:
+        return None
+
+    # 大文字小文字とUnicode表記を正規化してbasenameを絞り、別名hardlinkは候補に含めない。
+    requested_name = unicodedata.normalize('NFC', path.name).casefold()
+    aliases = []
+    try:
+        for entry in entries:
+            if unicodedata.normalize('NFC', entry.name).casefold() != requested_name:
+                continue
+            if entry.is_symlink():
+                continue
+            if os.path.samefile(path, entry.path):
+                aliases.append(entry.name)
+    except (OSError, ValueError):
+        return None
+    if len(aliases) != 1:
+        return None
+    return parent_info.st_dev, parent_info.st_ino, aliases[0]
