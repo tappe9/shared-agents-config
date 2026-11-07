@@ -1,6 +1,10 @@
 # implementing-repository-changes trigger matrix
 
-## 期待値
+## 現行評価
+
+現在の機械可読な期待値は [cases.json](../evals/implementing-repository-changes.cases.json)を正とします。実行方法・合格/不合格/未確認の判定・観測の限界は [評価ガイド](../evals/README.md)を参照してください。以下の旧CLIでの実績を現在の合格証拠として扱いません。
+
+## 過去評価時の入力
 
 | Prompt | Skill | Flow |
 |---|---:|---|
