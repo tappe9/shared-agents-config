@@ -1,0 +1,14 @@
+from calc import add
+
+
+def test_add_two_numbers():
+    assert add(2, 3) == 5
+
+
+def test_add_zero():
+    assert add(0, 7) == 7
+
+
+def test_calcluator_example():
+    # The calcluator example should add the two values.
+    assert add(1, 1) == 2

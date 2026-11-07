@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/shared-agents-config/skill-eval-cases.schema.json",
+  "title": "implementing-repository-changes evaluation cases",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "prompt",
+      "invocation",
+      "fixture",
+      "expected_flow",
+      "allowed_changes",
+      "forbidden_actions",
+      "checks",
+      "scenario_refs"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^(P|N|S)[0-9]{2}$"
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1
+      },
+      "invocation": {
+        "enum": [
+          "implicit",
+          "explicit"
+        ]
+      },
+      "fixture": {
+        "const": "mini-repo"
+      },
+      "expected_flow": {
+        "enum": [
+          "standard",
+          "lightweight",
+          "none"
+        ]
+      },
+      "allowed_changes": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uniqueItems": true
+      },
+      "forbidden_actions": {
+        "type": "array",
+        "items": {
+          "enum": [
+            "commit",
+            "push",
+            "pr",
+            "merge",
+            "deploy",
+            "apply",
+            "install"
+          ]
+        },
+        "uniqueItems": true
+      },
+      "checks": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "completion",
+          "skill",
+          "flow",
+          "changes",
+          "operations"
+        ],
+        "properties": {
+          "completion": {
+            "$ref": "#/$defs/noParameters"
+          },
+          "skill": {
+            "$ref": "#/$defs/noParameters"
+          },
+          "flow": {
+            "$ref": "#/$defs/noParameters"
+          },
+          "operations": {
+            "$ref": "#/$defs/noParameters"
+          },
+          "serialization": {
+            "$ref": "#/$defs/noParameters"
+          },
+          "failure_reporting": {
+            "$ref": "#/$defs/noParameters"
+          },
+          "changes": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required"
+            ],
+            "properties": {
+              "required": {
+                "$ref": "#/$defs/pathList"
+              },
+              "contains": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "replacements": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "old",
+                    "new"
+                  ],
+                  "properties": {
+                    "old": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "new": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "tests": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "min_count",
+              "red_green"
+            ],
+            "properties": {
+              "min_count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "red_green": {
+                "type": "boolean"
+              }
+            }
+          },
+          "roles": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required",
+              "forbidden"
+            ],
+            "properties": {
+              "required": {
+                "$ref": "#/$defs/roleList"
+              },
+              "forbidden": {
+                "$ref": "#/$defs/roleList"
+              }
+            }
+          }
+        }
+      },
+      "scenario_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(SG|VP)-[0-9]{2}$"
+        },
+        "uniqueItems": true
+      }
+    }
+  },
+  "$defs": {
+    "noParameters": {
+      "type": "object",
+      "maxProperties": 0
+    },
+    "pathList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "roleList": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "explorer",
+          "implementer",
+          "reviewer",
+          "reviewer_high_risk",
+          "tester"
+        ]
+      },
+      "uniqueItems": true
+    }
+  }
+}
