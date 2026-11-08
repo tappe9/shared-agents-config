@@ -8,6 +8,13 @@ from .content import canonical_text, read_dependencies
 from .paths import Layout, assert_safe_target, is_link
 
 
+_LOCAL_SECTION_KEYS = {
+    'superpowers': {'skills_root', 'version'},
+    'git_commit': {'skill_file'},
+    'client': {'kind', 'version'},
+}
+
+
 @dataclass(frozen=True)
 class Diagnostic:
     name: str
@@ -29,9 +36,11 @@ def _local(layout: Layout) -> dict:
         raise ValueError('invalid-local-config')
     if set(data) - {'schema_version', 'superpowers', 'git_commit', 'client'}:
         raise ValueError('invalid-local-config')
-    for section in ('superpowers', 'git_commit', 'client'):
+    for section, allowed_keys in _LOCAL_SECTION_KEYS.items():
         if not isinstance(data.get(section, {}), dict):
             raise ValueError('invalid-local-config')
+        if set(data.get(section, {})) - allowed_keys:
+            raise ValueError(f'unknown-local-key:{section}')
     for section, key in (('superpowers', 'skills_root'), ('git_commit', 'skill_file')):
         value = data.get(section, {}).get(key)
         if value is not None and (not isinstance(value, str) or not Path(value).is_absolute()):
@@ -43,9 +52,15 @@ def inspect_runtime(layout: Layout) -> list[Diagnostic]:
     checks: list[Diagnostic] = []
     try:
         local = _local(layout)
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError) as error:
         local = {}
-        checks.append(Diagnostic('local-config', 'warn', 'not_checked', 'Local diagnostic configuration is invalid.'))
+        message = 'Local diagnostic configuration is invalid.'
+        if isinstance(error, ValueError):
+            for section in _LOCAL_SECTION_KEYS:
+                if str(error) == f'unknown-local-key:{section}':
+                    message = f'Unknown setting in local diagnostic configuration section "{section}".'
+                    break
+        checks.append(Diagnostic('local-config', 'warn', 'not_checked', message))
     try:
         manifest = read_dependencies(layout.repo)
     except (OSError, ValueError):
