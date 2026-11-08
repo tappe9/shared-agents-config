@@ -158,15 +158,15 @@ Skill overrideは実ディレクトリエントリ単位で照合します。別
 
 配布元symlink、管理先配下のsymlink／junction、管理先と配布元の重なりは拒否します。POSIXの既存modeは保持しますが、Windowsの個別ACLまで保持できたとは未検証で断定しません。他アプリとの完全な同時更新を保証するものではないので、実機適用時はCodexを終了します。
 
-## 問題がある場合
-
-
+## 反映状態の記録
 
 `CODEX_HOME/shared-agents-config/state.json` に原本コミット、管理ファイルのハッシュ、管理skill設定、旧定義、検証結果を保存します。これは安全な同期・競合検出・反映状態の照合に必要な自動管理情報です。端末構成の手作業台帳ではなく、個人config全体や認証情報も保存しません。
 
+## 問題がある場合
 
+`doctor` は、明示された依存パス、global override、project scopeの設定、skill overrideなど、現在確認できる問題を診断します。実際に確認できる問題は警告し、明示的に指定した依存パスに必須Skillが存在しなければ不足として報告します。外部skillの導入元・revision・version、Codexクライアント版、実セッションでのrole・model・sandboxの確認結果を記録していないことや、local configが未指定であることだけでは警告にしません。
 
-必要に応じて次を実行します。
+通常の診断では、リポジトリのGitルートから次を実行します。
 
 ```powershell
 .\.venv\Scripts\python.exe -m harness doctor
@@ -176,15 +176,20 @@ Skill overrideは実ディレクトリエントリ単位で照合します。別
 ./.venv/bin/python -m harness doctor
 ```
 
-`doctor` は、明示された依存パス、global override、project scopeの設定、skill overrideなど、
-現在確認できる問題を補助的に診断します。
+### 任意のlocal configで依存パスを調べる
 
-global override、project scopeの設定、skill overrideなど、実際に確認できる問題は警告します。明示的に指定した依存パスに必須Skillが存在しなければ、不足として報告します。
+明示した依存ファイルの場所も診断したい場合にだけlocal configを使います。既定の読込先は `CODEX_HOME/shared-agents-config/local.toml` です。`CODEX_HOME` の解決順は[READMEの管理対象](../README.md#管理対象)を参照してください。[`local.example.toml`](../local.example.toml) は設定例として参照するファイルで、自動読込されません。明示的に別のファイルを読む場合は、リポジトリのGitルートから `doctor --local-config <path>` を実行します。
 
-外部skillの導入元・revision・version、Codexクライアント版、実セッションでのrole・model・sandboxの確認結果を
-記録していないだけでは警告にしません。
+```powershell
+.\.venv\Scripts\python.exe -m harness doctor --local-config .\local.toml
+```
 
-明示的に依存ファイルの場所も調べたい場合だけ、[local.example.toml](../local.example.toml) を参考にlocal configを設定します。
+```bash
+./.venv/bin/python -m harness doctor --local-config ./local.toml
+```
+
+### 診断結果を保存する
+
 `doctor --record` はトラブル調査で診断結果を保存したい場合の任意機能であり、通常の適用手順には含めません。必要な場合も、上記のOS別venv Pythonを指定し、トラブル調査のためにのみオプションを追加します。
 
 ```powershell

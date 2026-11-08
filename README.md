@@ -84,8 +84,8 @@ python3 -m venv .venv
 
 | 知りたいこと | 参照先 |
 |---|---|
-| 原本・モジュール・配布の関係 | [構成](architecture.md) |
-| 依頼の書き方と操作範囲 | [プロンプト例](PROMPTS.md) |
+| 原本・モジュール・配布の関係 | [構成](docs/architecture.md) |
+| 依頼の書き方と操作範囲 | [プロンプト例](docs/PROMPTS.md) |
 | 原本変更から適用・確認まで | [通常の適用](docs/manual-verification.md#通常の適用) |
 | 既存AGENTSを初めて移行する | [初回導入と旧配置の移行](docs/manual-verification.md#初回導入と旧配置の移行) |
 | 競合・部分失敗・診断 | [競合と失敗](docs/manual-verification.md#競合と失敗への対応)・[診断](docs/manual-verification.md#問題がある場合) |
