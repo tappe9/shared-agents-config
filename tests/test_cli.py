@@ -82,6 +82,27 @@ def test_cli_doctor_returns_warning_only_for_actual_warning(sandbox):
     assert 'warn global-override' in result.stdout
 
 
+@pytest.mark.parametrize(('section', 'key'), [
+    ('superpowers', 'skills_rooot'),
+    ('git_commit', 'skill_flie'),
+    ('client', 'vresion'),
+])
+@pytest.mark.parametrize('explicit', [False, True], ids=['default-config', 'explicit-config'])
+def test_cli_doctor_unknown_local_key_returns_warning(sandbox, tmp_path, section, key, explicit):
+    config = tmp_path / 'local.toml' if explicit else sandbox.layout.local_config
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(
+        f'schema_version=1\n[{section}]\n{key}="ignored typo"\n', encoding='utf-8')
+    options = ('--local-config', str(config)) if explicit else ()
+
+    result = invoke(sandbox, 'doctor', *options)
+
+    assert result.returncode == 1
+    assert 'warn local-config' in result.stdout
+    assert section in result.stdout
+    assert key not in result.stdout + result.stderr
+
+
 def test_cli_doctor_returns_error_for_explicit_missing_dependency(sandbox, tmp_path):
     root = tmp_path / 'plugin-skills'
     root.mkdir()
@@ -134,6 +155,35 @@ def test_cli_explicit_local_config(sandbox):
     result = invoke(sandbox, 'doctor', '--local-config', str(local))
     assert result.returncode == 0
     assert '1.2.3' not in result.stdout
+
+
+def test_cli_doctor_unknown_key_record_is_sanitized(sandbox):
+    key_sentinel = 'SECRET_UNKNOWN_KEY'
+    value_sentinel = 'SECRET_LOCAL_VALUE'
+    sandbox.layout.state_dir.mkdir(parents=True)
+    sandbox.layout.local_config.write_text(
+        'schema_version=1\n[client]\n'
+        f'{key_sentinel}="{value_sentinel}"\n', encoding='utf-8')
+
+    result = invoke(sandbox, 'doctor')
+
+    assert result.returncode == 1
+    assert not (sandbox.layout.state_dir / 'diagnostics.json').exists()
+    assert key_sentinel not in result.stdout + result.stderr
+    assert value_sentinel not in result.stdout + result.stderr
+
+    recorded = invoke(sandbox, 'doctor', '--record')
+
+    assert recorded.returncode == 1
+    assert key_sentinel not in recorded.stdout + recorded.stderr
+    assert value_sentinel not in recorded.stdout + recorded.stderr
+    report = json.loads((sandbox.layout.state_dir / 'diagnostics.json').read_text(encoding='utf-8'))
+    warning = next(check for check in report['checks'] if check['name'] == 'local-config')
+    assert warning['status'] == 'warn'
+    assert 'client' in warning['message']
+    serialized = json.dumps(report)
+    assert key_sentinel not in serialized
+    assert value_sentinel not in serialized
 
 
 def test_cli_invalid_role_stops_validate_plan_and_apply_before_writes(sandbox):
