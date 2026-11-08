@@ -3,6 +3,7 @@
 import os
 import signal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -123,17 +124,50 @@ def test_child_env_is_not_used_for_host_configuration(monkeypatch, tmp_path):
         assert all(b'sentinel-private-setting' not in path.read_bytes() for path in files)
 
 
-def test_probe_timeout_returns_unverified_without_attempting_prompt_run(tmp_path, monkeypatch):
+@pytest.mark.parametrize('platform', ['posix', 'nt'])
+def test_probe_timeout_returns_unverified_without_attempting_prompt_run(tmp_path, monkeypatch, platform):
     binary = tmp_path / 'codex'
     calls = []
-    fake_popen, _, _ = fake_process_factory(calls, timeout=True)
+    killed = []
+    communicates = []
+    fake_popen, _, _ = fake_process_factory(calls, timeout=True, killed=killed, communicates=communicates)
     monkeypatch.setattr(runner.subprocess, 'Popen', fake_popen)
+    owned_groups = []
+    monkeypatch.setattr(runner, 'os', SimpleNamespace(
+        name=platform,
+        environ=os.environ,
+        killpg=lambda pid, sig: owned_groups.append((pid, sig)),
+    ))
+    sigkill = object()
+    monkeypatch.setattr(runner, 'signal', SimpleNamespace(SIGKILL=sigkill))
+    if platform == 'nt':
+        monkeypatch.setattr(runner.subprocess, 'CREATE_NEW_PROCESS_GROUP', 0x200, raising=False)
+        taskkills = []
+
+        def fake_run(args, **kwargs):
+            normalized = list(map(str, args))
+            taskkills.append((normalized, kwargs))
+            return type('Completed', (), {'returncode': 0, 'stdout': '', 'stderr': ''})()
+
+        monkeypatch.setattr(runner.subprocess, 'run', fake_run)
     result = runner.probe_cli(binary)
     assert result['status'] == 'unverified'
     assert result['limitations']
     assert len(calls) == 1
     assert '--version' in calls[0]['args'] or '--help' in calls[0]['args']
     assert all(call['args'] == calls[0]['args'] for call in calls)
+    assert killed == [4242]
+    assert all(pid == 4242 for pid, _ in communicates)
+    assert len(communicates) == 2, 'timeout後にcommunicateで所有プロセスを1回reapする'
+    if platform == 'posix':
+        assert owned_groups == [(4242, sigkill)]
+    else:
+        assert calls[0]['kwargs'].get('creationflags') == 0x200
+        assert len(taskkills) == 1, 'taskkillを再試行しない'
+        args, kwargs = taskkills[0]
+        assert Path(args[0]).name.lower() == 'taskkill.exe'
+        assert args[1:] == ['/PID', '4242', '/T', '/F']
+        assert kwargs['timeout'] == 2
 
 
 def test_capture_probe_timeout_kills_and_reaps_only_owned_process_tree(tmp_path, monkeypatch):
