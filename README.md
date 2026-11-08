@@ -78,6 +78,8 @@ python3 -m venv .venv
 
 `plan` の終了コード1は「反映する差分あり」であり、構文エラーではありません。差分出力には論理IDと操作区分を使い、configやローカル追記の本文を出力しません。`doctor --record` はトラブル調査で診断記録を保存したい場合だけ使います。
 
+`plan` はJSONと通常表示に `difference_reasons`、`apply_blocked`、`apply_blockers` を追加します。理由コードは `not-recorded`、`source-commit-changed`、`managed-content`、`adoption`、`retired-files`、`orphaned-override`、`conflict` です。これらは既存のstatus・終了コード判定を変更しません。原本がdirtyの場合、差分がなく終了コード0でも `apply_blocked: true` となります。項目の読み方とapply時の再評価は[手動確認手順](docs/manual-verification.md#planの読み方)を参照してください。
+
 ## 文書の入口
 
 | 知りたいこと | 参照先 |
