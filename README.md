@@ -20,9 +20,9 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 
 ## モデル構成
 
-通常の4 roleは `gpt-6-luna` を使用し、高リスクレビューの `reviewer_high_risk` だけを `gpt-6.1-sol`（推論強度 `high`、`read-only`）へ更新しています。親エージェントのmodel設定は管理対象外で、変更しません。
+通常の4 roleは `gpt-6-luna`、高リスクレビューの `reviewer_high_risk` は `gpt-6.1-sol`（推論強度 `high`、`read-only`）を使用します。親エージェントのmodel設定は管理対象外です。
 
-[公式モデル仕様](https://developers.openai.com/api/docs/models/gpt-6.1-sol)でモデルIDと `high` の対応を確認しています。ただし、利用可否はアカウント・workspace・対象Codexクライアントに依存します。利用開始前は既存設定を維持し、[適用前の確認](docs/manual-verification.md#gpt-61-solへの切り替え)を終えてからこの変更を適用してください。
+モデルの利用可否はアカウント・workspace・対象Codexクライアントに依存します。モデルやroleを変更する場合は、[実動作確認](docs/manual-verification.md#実動作確認)に従い、必要な範囲で利用可否と実セッションの動作を確認します。
 
 ## 外部skillの前提
 
@@ -32,21 +32,13 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 外部skill自体のインストール、更新、配布元、version／revisionの管理はこのリポジトリの対象外です。
 Codexクライアントごとの版、端末ごとの確認日、実セッションでのrole・model・sandbox確認結果も継続的な台帳にはしません。
 
-## サブエージェント運用
+## 運用方針
 
-利用条件と例外は [AGENTS.md](AGENTS.md) の共通方針を参照します。既存5 roleを積極利用し、範囲を切り出せる調査・実装・テスト・レビューは委譲を原則とします。軽微な作業などは親が直接処理し、毎回全roleを起動する運用にはしません。
-
-サブエージェントの利用と各操作の承認は別です。委譲しても変更範囲やcommit／push／PR／merge等の権限は増えません。方針テスト・配置検証の成功と、実際の委譲・並列実行の成功も別です。方針変更時など必要な場合は [適用確認](docs/manual-verification.md) と [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) を参照します。
-
-検証は開発中に対象specと依存consumerを確認し、完了時は対象プロジェクトの検証表にある必須gateを最終状態で確認します。入力と対象内容が同じ成功証拠は再利用でき、詳細は [共通検証方針](AGENTS.md#検証範囲と成功証拠) を参照してください。
-
-## worktreeの配置
-
-新しいworktreeは、作成元プロジェクトのGitルート直下 `.worktrees/<topic>` を標準配置先とし、ユーザーの明示指定と適切な既存worktreeを優先します。詳細は [共通方針](AGENTS.md#worktreeの配置方針) を参照してください。この原本変更はアプリの保存先設定や既存worktreeの移動を自動では行いません。実端末への反映は、既存の外部ターミナルでの `apply` → 再起動 → `verify` 手順に従います。
+共通ルール・worktreeの配置・サブエージェントの利用条件・検証結果の再利用は [AGENTS.md](AGENTS.md) を参照してください。範囲を切り出せる作業は既存5 roleへ分担し、軽微な作業は親が直接対応します。委譲しても操作の承認範囲は増えません。
 
 ## 準備
 
-Python 3.11以上とGitが必要です。以下はリポジトリ直下で実行します。アプリの通常運用には `requirements.txt`、テストには `requirements-dev.txt` を使用します。依存はtomlkit、PyYAML、pytestです。
+Python 3.11以上とGitが必要です。以下はリポジトリ直下で実行します。アプリの通常運用には `requirements.txt`、テストには `requirements-dev.txt` を使用します。runtime依存はtomlkit、PyYAML、jsonschema、テスト追加分はpytestです。バージョン範囲は各requirementsファイルを正とします。
 venvを作成する前のPython確認・作成コマンドだけはホストのPythonを使います。作成後のローカルCLIとテストでは、以降の例のようにvenv内のPythonを指定します。
 
 ### Windows / PowerShell
@@ -72,43 +64,9 @@ python3 -m venv .venv
 
 ## コマンド
 
-以下はリポジトリのGitルートで実行します。activateは不要です。これらのvenv例はローカル用で、CIではworkflowが選んだPythonを使います。Codex終了後に開く外部ターミナルでも、同じGitルートへ移動して同じvenvを使います。
+リポジトリのGitルートで、準備節のvenv Pythonから `-m harness <コマンド>` を実行します。activateは不要です。初回導入・更新・外部ターミナルでのapply・再起動後のverifyは、[適用手順](docs/manual-verification.md)を参照してください。
 
-### Windows / PowerShell
-
-```powershell
-.\.venv\Scripts\python.exe -m harness validate
-.\.venv\Scripts\python.exe -m harness plan --json
-.\.venv\Scripts\python.exe -m harness apply
-.\.venv\Scripts\python.exe -m harness verify
-.\.venv\Scripts\python.exe -m harness doctor
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-### macOS
-
-```bash
-./.venv/bin/python -m harness validate
-./.venv/bin/python -m harness plan --json
-./.venv/bin/python -m harness apply
-./.venv/bin/python -m harness verify
-./.venv/bin/python -m harness doctor
-./.venv/bin/python -m pytest -q
-```
-
-`doctor --record` は、トラブル調査で診断結果を保存する場合だけ任意で付けます。初回移行の `--adopt-from COMMIT` の例は下記を参照してください。
-
-トラブル調査の結果を記録するときだけ、次のように実行します。
-
-```powershell
-.\.venv\Scripts\python.exe -m harness doctor --record
-```
-
-```bash
-./.venv/bin/python -m harness doctor --record
-```
-
-全サブコマンドで `--repo`、`--home`、`--codex-home`、`--local-config` を指定できます。オプションはサブコマンドの後に記述します。実機では、Codexが実際に使用しているホーム・CODEX_HOMEへ合わせてください。テストでは `--home` と `--codex-home` の両方を一時領域へ向けます。
+全サブコマンドで `--repo`、`--home`、`--codex-home`、`--local-config` を指定できます。オプションはサブコマンドの後に記述します。実機ではCodexが使用する配置先に合わせ、テストではhomeとCODEX_HOMEの両方を一時領域へ向けます。
 
 | コマンド | 動作 | 終了コード |
 |---|---|---|
@@ -118,101 +76,26 @@ python3 -m venv .venv
 | verify | 管理対象、反映コミット、旧定義を照合。書き込まない | 0一致、1不一致、2読取等の異常 |
 | doctor | 明示した依存パス・override等を読み取り診断 | 0診断対象に問題なし、1実際の警告、2確認できた必須依存不足等 |
 
-`plan` の終了コード1は「反映する差分あり」であり、構文エラーではありません。差分出力には論理IDと操作区分を使い、configやローカル追記の本文を出力しません。`doctor` は通常書き込みません。`--record` を付けた場合だけ診断記録を保存します。
+`plan` の終了コード1は「反映する差分あり」であり、構文エラーではありません。差分出力には論理IDと操作区分を使い、configやローカル追記の本文を出力しません。`doctor --record` はトラブル調査で診断記録を保存したい場合だけ使います。
 
-## 初回導入・旧配置の移行
+## 文書の入口
 
-実機に適用する前にCodexを終了してください。まず `plan` で対象を確認します。新規配置先には管理対象だけを作成します。未知の同名ファイルは無断で上書きしません。
-
-既に共通AGENTSと端末ローカルの追記が混在している場合は、旧原本のコミットを根拠として移行します。今回調査した旧原本は `5c3b08a63dfc5bd8f81581c4bc078e9df712a12f` ですが、両端末がこの版であると断定せず、実際に一致するコミットを指定します。
-
-```powershell
-.\.venv\Scripts\python.exe -m harness plan --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
-.\.venv\Scripts\python.exe -m harness apply --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
-.\.venv\Scripts\python.exe -m harness verify
-```
-
-```bash
-./.venv/bin/python -m harness plan --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
-./.venv/bin/python -m harness apply --adopt-from 5c3b08a63dfc5bd8f81581c4bc078e9df712a12f
-./.venv/bin/python -m harness verify
-```
-
-旧コミットはローカルGitから読み取ります。ネットワーク取得を自動実行しません。旧AGENTSのprefixと一致する場合だけ後続部分を保持します。比較ではLF／CRLFと先頭BOMの差を許容し、本文の差を勝手に吸収しません。一致しない場合は停止して境界を確認します。
-
-配置先のAGENTSは次の形式になります。
-
-```markdown
-<!-- shared-agents-config:begin -->
-共通AGENTSの内容
-<!-- shared-agents-config:end -->
-端末だけの追記
-```
-
-閉じマーカーの改行以降がローカル追記です。この部分は配置先で編集でき、同期時もバイト列を保持します。管理部分を直接編集すると競合になります。共通変更はリポジトリの原本に行ってください。ローカル追記のために `AGENTS.override.md` を新設する方式ではありません。
-
-## 通常更新
-
-### 変更対象の判断
-
-共通ルール、role、skill、同期CLIが管理する設定など、Windows／macOSで揃える変更はこのリポジトリを原本として先に変更します。配置済みの管理領域だけを直接編集して、その変更を原本へ後追いで戻す運用にはしません。
-
-変更先は次のように分けます。
-
-| 変更内容 | 変更先 |
+| 知りたいこと | 参照先 |
 |---|---|
-| Windows／macOSで共有するハーネス | このリポジトリの原本 |
-| 端末だけのAGENTS追記 | 配置先AGENTSの管理マーカー外 |
-| 認証、MCP、project trust、通知などの管理対象外設定 | 各端末 |
-| 各開発プロジェクト固有のルール | そのプロジェクトの `AGENTS.md` |
+| 原本・モジュール・配布の関係 | [構成](architecture.md) |
+| 依頼の書き方と操作範囲 | [プロンプト例](PROMPTS.md) |
+| 原本変更から適用・確認まで | [通常の適用](docs/manual-verification.md#通常の適用) |
+| 既存AGENTSを初めて移行する | [初回導入と旧配置の移行](docs/manual-verification.md#初回導入と旧配置の移行) |
+| 競合・部分失敗・診断 | [競合と失敗](docs/manual-verification.md#競合と失敗への対応)・[診断](docs/manual-verification.md#問題がある場合) |
+| モデル・role変更後に必要な確認 | [実動作確認](docs/manual-verification.md#実動作確認) |
+| roleの静的検査とschemaの更新 | [role検証仕様](docs/role-validation.md) |
+| Skillの評価方法と観測の限界 | [評価ガイド](evals/README.md) |
+| 既存のSG/VP期待シナリオと過去実績 | [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) |
 
-原本リポジトリの場所はWindows／macOSの固定絶対パスとして共通設定へ埋め込みません。作業前にGitのルート・remote等から `tappe9/shared-agents-config` のcheckoutであることを確認します。場所を特定できない場合は推測したパスや `CODEX_HOME` の管理領域だけを変更しません。
+## テスト
 
-### 更新と適用の流れ
+Windows / PowerShellでは `.\.venv\Scripts\python.exe -m pytest -q`、macOSでは `./.venv/bin/python -m pytest -q` を使います。文書差分は `git diff --check` で確認します。
 
-1. 原本を変更し、上記コマンド節のvenv Pythonで `validate` と `plan` を実行して構文・参照・配布差分を確認します。
-2. commit、push、PR、mergeは既存の承認境界に従います。原本優先のルールはこれらの操作を自動承認しません。特に、`apply` がcleanな原本を必要とすることを理由に未承認commitを行いません。
-3. 適用するcommitが確定したら作業ツリーをcleanにし、そのcommitから `plan` を再実行して最終差分を確認します。
-4. 対象のCodexクライアントを終了します。Codex稼働中に自分自身が使用中の管理対象へ反映する方法は、標準手順として動作確認済みとは扱いません。
-5. Codexとは別のPowerShell／Terminalを開き、原本リポジトリのGitルートへ移動して、上記コマンド節と同じvenv Pythonで `apply` を実行します。activateは不要です。
-6. Codexを再起動し、同じvenv Pythonで `verify` を実行して配置状態を確認します。設定変更の性質上必要な場合だけ、新規セッションで実動作も確認します。
+通常pytestは一時Gitリポジトリ・合成データ・fake実行だけを使用し、個人設定、認証、実モデルは使いません。CIはWindows／macOS × Python 3.11／3.14です。CI結果はGitHub Actionsを正とし、実行URLや端末別結果を別のMarkdown台帳へ転記しません。
 
-Codexは原本の更新、`validate`、`plan`、適用コマンドの準備までは行えます。実端末への `apply` は対象クライアント終了後の外部ターミナルを標準とします。`verify` の成功は配置状態の整合を示しますが、新しいCodexセッションが設定を読み込んだことまで保証するものではありません。
-
-原本の変更をGit管理し、作業ツリーがcleanな状態で `plan` →差分確認→ `apply` → `verify` の順に実行します。`apply` は未コミットの追跡変更や未追跡ファイルがある場合停止します。ignore済みの計画・仮想環境は除きます。
-
-管理入力に `assume-unchanged` または `skip-worktree` が付いている場合、HEADと内容が一致していても `plan`、`apply`、`verify` は停止します。フラグと原本を確認し、必要な対応後に `plan` をやり直してください。ハーネスはフラグを自動解除しません。
-
-同じコミット・同じ内容で再適用しても、管理対象ファイルやstateを再書き込みしません。コミットだけ進んだ場合は、内容確認後に反映メタデータだけ更新します。
-
-管理対象の無効化skillが存在しない場合、新規の無効化エントリは作らずNOTEを出します。存在するuser skillの実パスだけを対象とし、同名のsystem／plugin版は名前だけで無効化しません。既存configはTOMLを解析して部分更新し、対象外のキーやコメントを保持します。
-
-Skill overrideは実ディレクトリエントリ単位で照合します。別名hardlinkは別対象として扱い、大文字小文字などの表記差は同じ実エントリを確認できた場合に既存設定を更新します。
-
-## 競合・旧定義・失敗
-
-`conflict` は管理対象への端末側変更、未知の同名ファイル、旧AGENTSの境界不明などです。適用前に競合が見つかれば管理ファイルを書き換えません。`retired` は原本から消えた旧管理ファイルで、自動削除せず報告します。削除する場合は所有範囲と必要性を確認して手動で扱います。
-
-同時適用はstate領域の排他ファイルで防止します。異常終了後に排他ファイルが残っている場合、別処理が動いていないことを確認してから扱ってください。通常処理では削除します。
-
-ファイル単位の一時ファイルと置換で書き込みを保護し、直前の外部変更も検出します。ただし複数ファイルを一括トランザクションとして扱うものではありません。I/O失敗時は残りを停止し、変更済みの論理IDと失敗箇所を報告します。検証成功前に新しい成功stateを記録しません。原因を解消後、再度 `plan` で現在の状態を確認します。
-
-配布元symlink、管理先配下のsymlink／junction、管理先と配布元の重なりは拒否します。POSIXの既存modeは保持しますが、Windowsの個別ACLまで保持できたとは未検証で断定しません。他アプリとの完全な同時更新を保証するものではないので、実機適用時はCodexを終了します。
-
-## 反映状態と依存診断
-
-`CODEX_HOME/shared-agents-config/state.json` に原本コミット、管理ファイルのハッシュ、管理skill設定、旧定義、検証結果を保存します。これは安全な同期・競合検出・反映状態の照合に必要な自動管理情報です。端末構成の手作業台帳ではなく、個人config全体や認証情報も保存しません。
-
-通常の `doctor` は上記コマンド節のOS別venv Pythonで実行し、書き込みません。`--record` はトラブル調査で結果を `diagnostics.json` に保存したい場合だけ使用する任意機能です。
-
-Superpowersや `git-commit` の導入元・版を記録していないだけでは警告にしません。明示的にskillファイルの存在まで診断したい場合だけ、`local.example.toml` を参考に実際の絶対パスをlocal configへ指定します。指定したパスに必須skillが存在しなければ不足として報告します。
-
-global override、project scopeの設定、skill overrideなど、実際に確認できる問題は引き続き警告します。`doctor` の終了コード0は診断対象の範囲に限った結果であり、Codexセッションでのskill読み込み・role起動・model・sandboxの動作保証ではありません。
-
-## テストと適用確認
-
-`pytest -q` と `validate` は上記コマンド節のOS別venv Pythonで実行します。文書差分は `git diff --check` で確認します。
-
-テストは一時Gitリポジトリと一時ホームだけを使用します。CI定義はWindows／macOS・Python 3.11／3.14です。実際の個人設定、認証、モデルは使用しません。
-
-各端末への適用手順と問題発生時の確認は [docs/manual-verification.md](docs/manual-verification.md) を参照してください。CI結果はGitHub Actionsを正とし、別のMarkdownへ実行URLや端末別結果を転記しません。自動テストや配置確認の成功を、未確認の実セッション動作まで確認済みとは扱いません。
+静的検査や配置確認の成功と、実際のSkill選択・role起動・モデルの動作確認は別です。実モデル評価は明示した手動実行に限り、観測できない項目を合格にしません。

@@ -1,0 +1,3 @@
+# Synthetic sample only. This is not a Codex configuration file.
+approval_policy = "never"
+sandbox_mode = "read-only"

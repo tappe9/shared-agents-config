@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"synthetic-thread"}
+{"type":"turn.started","turn_id":"synthetic-turn"}
+{"type":"item.completed","item":{"id":"synthetic-command","type":"command_execution","command":"pytest -q","aggregated_output":"1 passed","exit_code":0,"status":"completed"}}
+{"type":"turn.completed","turn_id":"synthetic-turn","usage":{"input_tokens":10,"output_tokens":4}}

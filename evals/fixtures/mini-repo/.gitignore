@@ -1,0 +1,5 @@
+.worktrees/
+.plan/
+.venv/
+.pytest_cache/
+__pycache__/
