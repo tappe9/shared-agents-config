@@ -12,7 +12,8 @@ from pathlib import Path
 from .content import commit_sha, validate_sources
 from .diagnostics import inspect_runtime
 from .paths import Problem, assert_safe_target, resolve_layout
-from .sync import apply_plan, atomic_write, build_plan, load_state, verify_deployment
+from .sync import (SyncPlan, apply_plan, atomic_write, build_plan, load_state,
+                   verify_deployment)
 
 
 class Parser(argparse.ArgumentParser):
@@ -23,6 +24,46 @@ class Parser(argparse.ArgumentParser):
 
 def _problem(problem: Problem) -> dict:
     return {'code': problem.code, 'target_id': problem.target_id, 'message': problem.message}
+
+
+def _plan_report(plan: SyncPlan) -> dict:
+    different = (not plan.state or plan.state.get('source_commit') != plan.source_commit
+                 or any(op.action != 'unchanged' for op in plan.operations)
+                 or any(p.code == 'orphaned-override' for p in plan.notes))
+    difference_reasons = []
+    # 原本不正やstate読取失敗の空stateを、未配置と断定しない。
+    if not plan.state and not plan.problems:
+        difference_reasons.append('not-recorded')
+    if plan.state and plan.state.get('source_commit') != plan.source_commit:
+        difference_reasons.append('source-commit-changed')
+    if any(op.action in {'create', 'update', 'adopt'}
+           and op.desired_bytes != op.expected_before for op in plan.operations):
+        difference_reasons.append('managed-content')
+    if any(op.action == 'adopt' for op in plan.operations):
+        difference_reasons.append('adoption')
+    if any(op.action == 'retired' for op in plan.operations):
+        difference_reasons.append('retired-files')
+    if any(problem.code == 'orphaned-override' for problem in plan.notes):
+        difference_reasons.append('orphaned-override')
+    if any(op.action == 'conflict' for op in plan.operations):
+        difference_reasons.append('conflict')
+
+    apply_blockers = [_problem(problem) for problem in plan.problems]
+    if plan.source_dirty:
+        apply_blockers.append(_problem(Problem(
+            'dirty-source', 'source', 'Commit or reconcile source changes before apply.')))
+
+    return {
+        'source_commit': plan.source_commit,
+        'source_dirty': plan.source_dirty,
+        'operations': [{'target_id': op.target_id, 'action': op.action} for op in plan.operations],
+        'problems': [_problem(problem) for problem in plan.problems],
+        'notes': [_problem(problem) for problem in plan.notes],
+        'status': 'differences' if different else 'aligned',
+        'difference_reasons': difference_reasons,
+        'apply_blocked': bool(apply_blockers),
+        'apply_blockers': apply_blockers,
+    }
 
 
 def _emit(report: dict, as_json: bool) -> None:
@@ -41,6 +82,12 @@ def _emit(report: dict, as_json: bool) -> None:
         print('source_commit: ' + report['source_commit'])
     if report.get('source_dirty'):
         print('dirty-source: commit source changes before apply')
+    if 'difference_reasons' in report:
+        reasons = ', '.join(report['difference_reasons']) or 'none'
+        blocker_codes = ', '.join(problem['code'] for problem in report['apply_blockers']) or 'none'
+        print('difference_reasons: ' + reasons)
+        print('apply_blocked: ' + str(report['apply_blocked']).lower())
+        print('apply_blockers: ' + blocker_codes)
     if not report.get('problems'):
         print('status: ' + report.get('status', 'checked'))
 
@@ -111,15 +158,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                    'problems': [_problem(p) for p in result.problems],
                    'notes': [_problem(p) for p in result.notes], 'status': 'applied'}, False)
             return 2 if result.problems else 0
-        different = (not plan.state or plan.state.get('source_commit') != plan.source_commit
-                     or any(op.action != 'unchanged' for op in plan.operations)
-                     or any(p.code == 'orphaned-override' for p in plan.notes))
-        _emit({'source_commit': plan.source_commit, 'source_dirty': plan.source_dirty,
-               'operations': [{'target_id': op.target_id, 'action': op.action} for op in plan.operations],
-               'problems': [_problem(p) for p in plan.problems],
-               'notes': [_problem(p) for p in plan.notes],
-               'status': 'differences' if different else 'aligned'}, as_json)
-        return 2 if plan.problems else (1 if different else 0)
+        report = _plan_report(plan)
+        _emit(report, as_json)
+        return 2 if plan.problems else (1 if report['status'] == 'differences' else 0)
     except (OSError, ValueError, TypeError):
         _emit({'problems': [{'code': 'command-failed', 'target_id': 'command',
                             'message': 'Command failed; check arguments, permissions and configuration syntax.'}]}, as_json)

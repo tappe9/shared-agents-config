@@ -54,6 +54,21 @@ git remote -v
 - `validate`: 原本の構文・参照関係を検証します。
 - `plan`: 配置先を変更せず、差分・競合を確認します。
 
+### planの読み方
+
+`plan` は従来のstatusと終了コードを保ち、差分理由と今回のplanで観測した適用阻害要因を追加表示します。初回や一致などの代表例は次の通りです。
+
+| 状態 | `difference_reasons` の例 | `apply_blocked` / 終了コード |
+|---|---|---|
+| 初回、適用stateなし | `not-recorded`, `managed-content` | blockerがなければ `false` / 1 |
+| 適用済みで一致 | 空配列 | `false` / 0 |
+| 管理対象の内容更新 | `managed-content`（commitも変われば `source-commit-changed` も含む） | blockerがなければ `false` / 1 |
+| 内容は同一でcommit記録のみ変更 | `source-commit-changed` | blockerがなければ `false` / 1 |
+| 原本がdirty | 差分なしなら空配列 | `true`（`dirty-source`）/ statusや終了コードは既存判定を維持 |
+| 管理対象の競合 | `conflict` | `true`（`conflict`）/ 2 |
+
+`difference_reasons` の固定コードには、採用操作の `adoption`、未削除の旧管理ファイルを表す `retired-files`、保持された設定を表す `orphaned-override` もあります。これは観測内容の説明であり、削除完了や適用成功を意味しません。`apply_blockers` はplanの問題とdirty原本を示します。空であってもlock、権限、plan後の同時変更がない保証にはなりません。`apply` は実行時にこれらを再評価します。
+
 commit、push、PR、mergeは既存の承認境界に従います。原本を先に変更する方針は、これらを無断で実行する許可ではありません。`apply` がcleanな原本を必要とすることだけを理由に、未承認のcommitを行いません。
 
 適用するcommitが確定したら作業ツリーがcleanであることを確認し、そのcommitから `validate` と `plan` を再実行して最終状態を確認します。
