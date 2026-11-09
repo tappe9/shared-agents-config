@@ -242,6 +242,46 @@ def test_cli_doctor_does_not_write_and_record_is_explicit(sandbox):
     assert 'recorded' in result.stdout
 
 
+def test_cli_invalid_skill_stops_validate_plan_and_apply_before_writes(sandbox):
+    skill = sandbox.repo / 'skills/sample/SKILL.md'
+    skill.write_text('---\nname: sample\ndescription: ' + 'x' * 1024 +
+                     'SECRET_SKILL_VALUE\n---\n', encoding='utf-8')
+    sandbox.commit()
+
+    for command in ('validate', 'plan', 'apply'):
+        result = invoke(sandbox, command)
+        assert result.returncode == 2
+        assert 'invalid-skill' in result.stdout + result.stderr
+        assert 'description' in (result.stdout + result.stderr).lower()
+        assert 'SECRET_SKILL_VALUE' not in result.stdout + result.stderr
+        assert not sandbox.layout.home.exists()
+
+
+def test_cli_invalid_skill_plan_report_keeps_blocker_and_hides_secret(sandbox):
+    skill = sandbox.repo / 'skills/sample/SKILL.md'
+    skill.write_text('---\nname: sample\ndescription: ' + 'x' * 1024 +
+                     'SECRET_SKILL_VALUE\n---\n', encoding='utf-8')
+    sandbox.commit()
+
+    result = invoke(sandbox, 'plan', '--json')
+
+    assert result.returncode == 2
+    assert 'SECRET_SKILL_VALUE' not in result.stdout + result.stderr
+    report = json.loads(result.stdout)
+    assert report['operations'] == []
+    assert report['apply_blocked'] is True
+    assert report['difference_reasons'] == []
+    assert [p['code'] for p in report['problems']] == ['invalid-skill', 'missing-skill-root']
+    assert [p['code'] for p in report['apply_blockers']] == [
+        'invalid-skill', 'missing-skill-root',
+    ]
+    assert report['problems'][0]['target_id'] == 'skills/sample/SKILL.md'
+    assert all(set(p) == {'code', 'target_id', 'message'}
+               for p in report['problems'] + report['apply_blockers'])
+    assert 'not-recorded' not in result.stdout
+    assert not sandbox.layout.home.exists()
+
+
 def test_cli_doctor_returns_warning_only_for_actual_warning(sandbox):
     path = sandbox.layout.codex_home / 'AGENTS.override.md'
     path.parent.mkdir(parents=True)
