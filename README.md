@@ -91,6 +91,7 @@ python3 -m venv .venv
 | 競合・部分失敗・診断 | [競合と失敗](docs/manual-verification.md#競合と失敗への対応)・[診断](docs/manual-verification.md#問題がある場合) |
 | モデル・role変更後に必要な確認 | [実動作確認](docs/manual-verification.md#実動作確認) |
 | roleの静的検査とschemaの更新 | [role検証仕様](docs/role-validation.md) |
+| Skillの静的検査と必須要件 | [Skill検証仕様](docs/skill-validation.md) |
 | Skillの評価方法と観測の限界 | [評価ガイド](evals/README.md) |
 | 既存のSG/VP期待シナリオと過去実績 | [trigger matrix](tests/implementing-repository-changes-trigger-matrix.md) |
 

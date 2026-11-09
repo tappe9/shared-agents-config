@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 import pytest
@@ -164,3 +165,140 @@ def test_current_repository_role_definitions_validate():
     root = Path(__file__).resolve().parents[1]
     invalid_roles = [p for p in validate_sources(root) if p.code == 'invalid-role']
     assert invalid_roles == []
+
+
+def _replace_skill(sandbox, name='sample', description='Test skill', *, frontmatter=None,
+                   body='# Sample\n', directory=None):
+    skill_path = sandbox.repo / 'skills/sample/SKILL.md'
+    if skill_path.exists():
+        skill_path.unlink()
+    if frontmatter is None:
+        frontmatter = (f'name: {json.dumps(name, ensure_ascii=False)}\n'
+                       f'description: {json.dumps(description, ensure_ascii=False)}\n')
+    if directory is None:
+        directory = name
+    sandbox.write(f'skills/{directory}/SKILL.md', f'---\n{frontmatter}---\n{body}')
+    sandbox.commit()
+
+
+@pytest.mark.parametrize('name', [
+    'a', 'x' * 64, 'sample-2', '123', '日本語', '日' + 'x' * 63,
+], ids=['one-character', '64-ascii', 'hyphen-and-number', 'numeric-only', 'japanese',
+        '64-unicode'])
+def test_skill_name_accepts_spec_values(sandbox, name):
+    _replace_skill(sandbox, name)
+
+    assert validate_sources(sandbox.repo) == []
+
+
+@pytest.mark.parametrize(('name', 'reason_hint'), [
+    ('x' * 65, 'length'), ('SampleBad', 'lowercase'), ('-sample', 'hyphen'),
+    ('sample-', 'hyphen'), ('sam--ple', 'hyphen'), ('under_score', 'character'),
+    ('sample name', 'character'), ('sample/name', 'character'),
+    ('sample😀', 'character'), (' sample', 'character'), ('sample ', 'character'),
+], ids=['too-long', 'uppercase', 'leading-hyphen', 'trailing-hyphen', 'double-hyphen',
+        'underscore', 'space', 'slash', 'emoji', 'leading-space', 'trailing-space'])
+def test_skill_name_rejects_spec_violations(sandbox, name, reason_hint):
+    # slashや空白などOSで扱いが異なる入力は固定pathで検査する。
+    path_name = ('sample' if '/' in name or ' ' in name or '😀' in name else name)
+    _replace_skill(sandbox, name, frontmatter=(
+        f'name: {json.dumps(name, ensure_ascii=False)}\ndescription: "Test skill"\n'),
+        directory=path_name)
+
+    problems = validate_sources(sandbox.repo)
+    problem = next(p for p in problems if p.code == 'invalid-skill')
+    assert problem.target_id == f'skills/{path_name}/SKILL.md'
+    assert 'name' in problem.message.lower()
+    assert reason_hint in problem.message.lower()
+
+
+@pytest.mark.parametrize(('description', 'valid'), [
+    ('あ' * 1024, True), ('あ' * 1025, False), ('x' * 1024, True),
+    ('x' * 1025, False), ('x' + ' ' * 1024, False),
+], ids=['unicode-1024', 'unicode-1025', 'ascii-1024', 'ascii-1025', 'raw-trailing-space'])
+def test_skill_description_length_uses_raw_characters(sandbox, description, valid):
+    _replace_skill(sandbox, description=description)
+
+    problems = validate_sources(sandbox.repo)
+    if valid:
+        assert problems == []
+    else:
+        problem = next(p for p in problems if p.code == 'invalid-skill')
+        assert 'description' in problem.message.lower()
+        assert 'length' in problem.message.lower()
+
+
+@pytest.mark.parametrize(('key', 'value'), [
+    ('name', 'missing'), ('description', 'missing'),
+    ('name', None), ('name', True), ('name', 42), ('name', []), ('name', {}),
+    ('name', ''), ('name', '   '), ('description', None), ('description', False),
+    ('description', 42), ('description', []), ('description', {}),
+    ('description', ''), ('description', '   '),
+])
+def test_skill_required_fields_reject_invalid_values(sandbox, key, value):
+    values = {'name': 'sample', 'description': 'Test skill'}
+    if value == 'missing':
+        values.pop(key)
+    else:
+        values[key] = value
+    frontmatter = '\n'.join(f'{field}: {json.dumps(val, ensure_ascii=False)}'
+                             for field, val in values.items()) + '\n'
+    _replace_skill(sandbox, frontmatter=frontmatter)
+
+    problem = next(p for p in validate_sources(sandbox.repo) if p.code == 'invalid-skill')
+    assert key in problem.message.lower()
+
+
+def test_skill_name_requires_exact_directory_match(sandbox):
+    _replace_skill(sandbox, name='other', directory='sample')
+
+    problems = validate_sources(sandbox.repo)
+    assert any(p.code == 'invalid-skill' and p.target_id == 'skills/sample/SKILL.md'
+               for p in problems)
+    assert any(p.code == 'missing-skill-root' and p.target_id == 'skills/sample/SKILL.md'
+               for p in problems)
+
+
+def test_skill_name_is_not_normalized_to_match_directory(sandbox):
+    _replace_skill(sandbox, name='ｓａｍｐｌｅ', directory='sample')
+
+    problems = validate_sources(sandbox.repo)
+    assert any(p.code == 'invalid-skill' and p.target_id == 'skills/sample/SKILL.md'
+               for p in problems)
+
+
+def test_skill_optional_metadata_and_long_body_remain_valid(sandbox):
+    frontmatter = (
+        'name: sample\n' + 'description: ' + 'x' * 1024 + '\n'
+        'metadata:\n  version: 1\n  compatibility: broad\n'
+        'allowed-tools: Read\nunknown_optional: accepted\n'
+    )
+    _replace_skill(sandbox, frontmatter=frontmatter, body='line\n' * 501)
+
+    assert validate_sources(sandbox.repo) == []
+
+
+@pytest.mark.parametrize('raw', [
+    '---\nname: sample\ndescription: SECRET_SKILL_VALUE\ninvalid: [\n---\n',
+    '---\nname: sample\nname: other\ndescription: SECRET_SKILL_VALUE\n---\n',
+    '---\nname: sample\ndescription: SECRET_SKILL_VALUE\n',
+    '---\n- SECRET_SKILL_VALUE\n---\n',
+    '',
+    b'---\nname: sample\ndescription: SECRET_SKILL_VALUE\n---\n\xff',
+])
+def test_skill_parse_errors_are_sanitized(sandbox, raw):
+    sandbox.write('skills/sample/SKILL.md', raw)
+    sandbox.commit()
+
+    problems = validate_sources(sandbox.repo)
+    assert any(p.code == 'invalid-skill' for p in problems)
+    assert 'SECRET_SKILL_VALUE' not in repr(problems)
+
+
+def test_skill_frontmatter_preserves_bom_crlf_and_multiline(sandbox):
+    raw = ('\ufeff---\r\nname: sample\r\ndescription: >\r\n'
+           '  日本語の説明\r\n  複数行です\r\n---\r\n本文\r\n')
+    sandbox.write('skills/sample/SKILL.md', raw)
+    sandbox.commit()
+
+    assert validate_sources(sandbox.repo) == []
