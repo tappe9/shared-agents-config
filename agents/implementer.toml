@@ -1,8 +1,8 @@
 name = "implementer"
 description = "仕様と実装方針が確定した後、必要最小限のコード変更を行う実装専門エージェント。"
 
-model = "gpt-6-luna"
-model_reasoning_effort = "xhigh"
+model = "gpt-6.1-terra"
+model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

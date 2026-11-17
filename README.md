@@ -16,11 +16,21 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 
 認証ファイル、MCP、project trust、通知、対象外のskill設定は配布原本に取り込みません。プロジェクト間の関係やアプリ固有の制約は、そのプロジェクトの `AGENTS.md` で管理します。個人skillの原本は `skills/` に置き、この管理リポジトリ内の `.agents/skills/` へ複製しません。
 
-既存の5 role、推論強度、sandbox、commit／push／PR／mergeの承認境界を維持します。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
+既存の5 role、sandbox設定、commit／push／PR／mergeの承認境界を維持します。モデルと推論強度は「モデル構成」に従います。開発用 `.env` をworktreeへコピーする既存手順も変更しません。
 
 ## モデル構成
 
-通常の4 roleは `gpt-6-luna`、高リスクレビューの `reviewer_high_risk` は `gpt-6.1-sol`（推論強度 `high`、`read-only`）を使用します。親エージェントのmodel設定は管理対象外です。
+共通設定は次の5 roleを使用します。モデルと推論強度の実設定は `agents/*.toml` を正とし、役割選択と親への差し戻し基準は [AGENTS.md](AGENTS.md) を参照します。
+
+| role | model | 推論強度 | sandbox設定 |
+|---|---|---|---|
+| explorer | `gpt-6-luna` | `high` | `read-only` |
+| implementer | `gpt-6.1-terra` | `high` | `workspace-write` |
+| tester | `gpt-6-luna` | `high` | `workspace-write` |
+| reviewer | `gpt-6.1-sol` | `medium` | `read-only` |
+| reviewer_high_risk | `gpt-6.1-sol` | `high` | `read-only` |
+
+親エージェントの推奨既定値は `gpt-6.1-sol` / `high` です。親のmodel・推論強度は共通ハーネスの管理対象外で、各端末で設定します。難しい設計・分析では `xhigh`、Solで解決できない難所では利用可能なAstraを検討します。
 
 モデルの利用可否はアカウント・workspace・対象Codexクライアントに依存します。モデルやroleを変更する場合は、[実動作確認](docs/manual-verification.md#実動作確認)に従い、必要な範囲で利用可否と実セッションの動作を確認します。
 

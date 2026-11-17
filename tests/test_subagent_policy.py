@@ -9,9 +9,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 FLOW = "skills/implementing-repository-changes/references"
 EXPECTED = {
-    "explorer": ("gpt-6-luna", "xhigh", "read-only"),
-    "implementer": ("gpt-6-luna", "xhigh", "workspace-write"),
-    "reviewer": ("gpt-6-luna", "xhigh", "read-only"),
+    "explorer": ("gpt-6-luna", "high", "read-only"),
+    "implementer": ("gpt-6.1-terra", "high", "workspace-write"),
+    "reviewer": ("gpt-6.1-sol", "medium", "read-only"),
     "reviewer_high_risk": ("gpt-6.1-sol", "high", "read-only"),
     "tester": ("gpt-6-luna", "high", "workspace-write"),
 }

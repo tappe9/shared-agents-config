@@ -1,8 +1,8 @@
 name = "reviewer"
 description = "通常のコードレビューを担当する読み取り専用エージェント。バグ、回帰、保守性、テスト不足を確認する。"
 
-model = "gpt-6-luna"
-model_reasoning_effort = "xhigh"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 
 developer_instructions = """
