@@ -27,7 +27,7 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 | explorer | `gpt-6-luna` | `high` | `read-only` |
 | implementer | `gpt-6.1-terra` | `high` | `workspace-write` |
 | tester | `gpt-6-luna` | `high` | `workspace-write` |
-| reviewer | `gpt-6.1-sol` | `medium` | `read-only` |
+| reviewer | `gpt-6.2-sol` | `medium` | `read-only` |
 | reviewer_high_risk | `gpt-6.1-sol` | `high` | `read-only` |
 
 親エージェントの推奨既定値は `gpt-6.1-sol` / `high` です。親のmodel・推論強度は共通ハーネスの管理対象外で、各端末で設定します。難しい設計・分析では `xhigh`、Solで解決できない難所では利用可能なAstraを検討します。
