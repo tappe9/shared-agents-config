@@ -36,10 +36,12 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 
 ## 外部skillの前提
 
-各環境には **Superpowersのプラグイン版と `git-commit` がインストールされ、利用するCodexから使用できること**を前提とします。旧版を個別配置した端末では、[プラグイン版への移行](docs/manual-verification.md#superpowersのプラグイン版への移行)を参照してください。
+Superpowersは、Codex公式のプラグインディレクトリで配布されるプラグイン版を使用します。Windows環境のCodexアプリとCodex CLIの両方で動作を確認したバージョンは **Superpowers 7.0.1** です。旧版を個別配置した端末では、[プラグイン版への移行](docs/manual-verification.md#superpowersのプラグイン版への移行)を参照してください。
+
+各環境には `git-commit` もインストールされ、利用するCodexから呼び出せることを前提とします。
 `config/dependencies.toml` は共通指示が必要とする外部skill名だけを宣言します。
 
-外部skill自体のインストール、更新、配布元、version／revisionの管理はこのリポジトリの対象外です。
+外部skill自体のインストール、更新、version／revisionの管理はこのリポジトリの対象外です。
 Codexクライアントごとの版、端末ごとの確認日、実セッションでのrole・model・sandbox確認結果も継続的な台帳にはしません。
 
 ## 運用方針
