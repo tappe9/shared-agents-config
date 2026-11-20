@@ -128,7 +128,7 @@ def source_files(repo: Path, *, ref: str | None = None) -> dict[str, bytes]:
     return result
 
 
-def read_policy(repo: Path) -> tuple[str, ...]:
+def read_policy(repo: Path) -> tuple[tuple[str, ...], dict[str, str]]:
     path = repo / 'config/skills-policy.toml'
     assert_safe_target(repo, path)
     try:
@@ -142,8 +142,30 @@ def read_policy(repo: Path) -> tuple[str, ...]:
             validate_relative_name(name)
         if len({n.casefold() for n in names}) != len(names):
             raise ValueError
-        return tuple(names)
-    except (OSError, ValueError, KeyError, TypeError):
+        disabled = set(names)
+        entries = data['skills'].get('superpowers_5_1_0_files', {})
+        if not isinstance(entries, dict):
+            raise ValueError
+        seen = set()
+        for name, value in entries.items():
+            if not isinstance(name, str):
+                raise ValueError
+            parts = name.split('/')
+            if len(parts) < 2 or parts[0] not in disabled:
+                raise ValueError
+            for part in parts:
+                validate_relative_name(part)
+                lower = part.lower()
+                if lower in {'.env', 'auth.json', 'local.toml', 'state.json', 'diagnostics.json'} or lower.startswith('.env.'):
+                    raise ValueError
+            if name.casefold() in seen or not isinstance(value, str) or not re.fullmatch('[0-9a-f]{64}', value):
+                raise ValueError
+            seen.add(name.casefold())
+        for name in entries:
+            if name.split('/')[0] + '/SKILL.md' not in entries:
+                raise ValueError
+        return tuple(names), entries
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         raise ValueError('invalid-skills-policy') from None
 
 
@@ -299,7 +321,10 @@ def validate_sources(repo: Path) -> list[Problem]:
     problems: list[Problem] = []
     try:
         files = source_files(repo)
-        read_policy(repo)
+        _, legacy_files = read_policy(repo)
+        source_skill_dirs = {name.split('/')[1].casefold() for name in files if name.startswith('skills/')}
+        if any(name.split('/')[0].casefold() in source_skill_dirs for name in legacy_files):
+            raise ValueError
     except (OSError, ValueError):
         return [Problem('invalid-source', 'source', 'Source paths, policy or Git entries are invalid.')]
     try:

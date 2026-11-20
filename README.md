@@ -9,7 +9,7 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 | `AGENTS.md` | `CODEX_HOME/AGENTS.md` | 管理マーカー内の共通部分 |
 | `agents/*.toml` | `CODEX_HOME/agents/` | 管理対象ファイル |
 | Git追跡済みの `skills/<name>/**` | `~/.agents/skills/<name>/` | 管理対象ファイル |
-| `config/skills-policy.toml` | `CODEX_HOME/config.toml` | 対象user skillの無効化設定だけ |
+| `config/skills-policy.toml` | `CODEX_HOME/config.toml` と `~/.agents/skills/` | 個別スキルの無効化と、公式Superpowers v5.1.0に一致する旧ファイルの削除 |
 | `config/dependencies.toml` | 配布せず検証・診断に使用 | 必須の外部skill宣言 |
 
 `CODEX_HOME` はCLIの `--codex-home`、環境変数 `CODEX_HOME`、ホーム配下の `.codex` の順に決定します。user skillの配置先はホーム配下の `.agents/skills` で、`CODEX_HOME` には連動しません。
@@ -36,7 +36,7 @@ WindowsとmacOSで使用するCodexの共通設定を原本として管理し、
 
 ## 外部skillの前提
 
-各環境には **Superpowersと `git-commit` がインストールされ、利用するCodexから使用できること**を前提とします。
+各環境には **Superpowersのプラグイン版と `git-commit` がインストールされ、利用するCodexから使用できること**を前提とします。旧版を個別配置した端末では、[プラグイン版への移行](docs/manual-verification.md#superpowersのプラグイン版への移行)を参照してください。
 `config/dependencies.toml` は共通指示が必要とする外部skill名だけを宣言します。
 
 外部skill自体のインストール、更新、配布元、version／revisionの管理はこのリポジトリの対象外です。

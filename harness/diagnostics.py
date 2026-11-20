@@ -4,7 +4,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from .content import canonical_text, read_dependencies
+from .content import canonical_text, read_dependencies, read_policy
 from .paths import Layout, assert_safe_target, is_link
 
 
@@ -46,6 +46,18 @@ def _local(layout: Layout) -> dict:
         if value is not None and (not isinstance(value, str) or not Path(value).is_absolute()):
             raise ValueError('invalid-local-path')
     return data
+
+
+def _uncertain_skill_override(entry: dict, retired_skills: set[Path]) -> bool:
+    raw = entry.get('path')
+    if not isinstance(raw, str) or not Path(raw).is_absolute():
+        return True
+    path = Path(raw)
+    if path.is_file():
+        return False
+    # 旧版の再配置に備え、削除後も意図的に保持する無効化設定。
+    return not (entry.get('enabled') is False and path in retired_skills
+                and not path.exists() and not is_link(path))
 
 
 def inspect_runtime(layout: Layout) -> list[Diagnostic]:
@@ -103,8 +115,9 @@ def inspect_runtime(layout: Layout) -> list[Diagnostic]:
         if config.is_file():
             data = tomllib.loads(config.read_bytes().decode('utf-8-sig'))
             entries = data.get('skills', {}).get('config', [])
-            uncertain = any(not isinstance(e.get('path'), str) or
-                            not Path(e['path']).is_absolute() or not Path(e['path']).is_file() for e in entries)
+            _, legacy_files = read_policy(layout.repo)
+            retired_skills = {layout.skills_home / name.split('/')[0] / 'SKILL.md' for name in legacy_files}
+            uncertain = any(_uncertain_skill_override(entry, retired_skills) for entry in entries)
             if uncertain:
                 checks.append(Diagnostic('skill-overrides', 'warn', 'observed', 'Named, relative or absent skill targets need configuration review.'))
     except (OSError, ValueError, TypeError, AttributeError):

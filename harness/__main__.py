@@ -36,7 +36,7 @@ def _plan_report(plan: SyncPlan) -> dict:
         difference_reasons.append('not-recorded')
     if plan.state and plan.state.get('source_commit') != plan.source_commit:
         difference_reasons.append('source-commit-changed')
-    if any(op.action in {'create', 'update', 'adopt'}
+    if any(op.action in {'create', 'update', 'adopt', 'delete'}
            and op.desired_bytes != op.expected_before for op in plan.operations):
         difference_reasons.append('managed-content')
     if any(op.action == 'adopt' for op in plan.operations):

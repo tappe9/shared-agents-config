@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -170,21 +171,25 @@ def _add_file(plan: SyncPlan, layout: Layout, name: str, desired: bytes,
     plan.operations.append(Operation(target_id, action, target, before, desired, desired_hash))
 
 
-def _add_config(plan: SyncPlan, layout: Layout) -> None:
+def _add_config(plan: SyncPlan, layout: Layout, names: tuple[str, ...],
+                legacy_files: dict[str, str]) -> None:
     target = layout.codex_home / 'config.toml'
     original = _read(layout.codex_home, target)
     desired: dict[Path, bool] = {}
-    for name in read_policy(layout.repo):
+    legacy_dirs = {name.split('/')[0] for name in legacy_files}
+    previous = plan.state.get('managed_skill_overrides', {})
+    previous_paths = {key: file_target(layout, key)[1] for key in previous}
+    legacy_paths = {layout.skills_home / name / 'SKILL.md' for name in legacy_dirs}
+    current = read_overrides(original or b'', list(set(previous_paths.values()) | legacy_paths))
+    for name in names:
         candidate = layout.skills_home / name / 'SKILL.md'
         assert_safe_target(layout.skills_home, candidate)
-        if candidate.is_file():
+        if (candidate.is_file() or
+                (name in legacy_dirs and (candidate in current or candidate in previous_paths.values()))):
             desired[candidate] = False
         else:
             plan.notes.append(Problem('absent-disable-candidate', f'skills:{name}/SKILL.md',
                                       'No override is generated for an absent skill.'))
-    previous = plan.state.get('managed_skill_overrides', {})
-    previous_paths = {key: file_target(layout, key)[1] for key in previous}
-    current = read_overrides(original or b'', list(previous_paths.values()))
     for key, path in previous_paths.items():
         if path in desired and current.get(path) != previous[key]:
             plan.problems.append(Problem('conflict', key, 'The managed enabled value changed locally.'))
@@ -198,6 +203,53 @@ def _add_config(plan: SyncPlan, layout: Layout) -> None:
         return
     action = 'create' if original is None else 'update' if updated != original else 'unchanged'
     plan.operations.append(Operation('codex:config.toml', action, target, original, updated))
+
+
+def _read_regular(root: Path, target: Path) -> bytes | None:
+    assert_safe_target(root, target)
+    try:
+        if not stat.S_ISREG(target.lstat().st_mode):
+            raise ValueError('not-regular-file')
+    except FileNotFoundError:
+        return None
+    return _read(root, target)
+
+
+def _add_legacy_superpowers_deletions(plan: SyncPlan, layout: Layout,
+                                       entries: dict[str, str]) -> None:
+    matching_dirs: dict[str, bytes] = {}
+    for name in {item.split('/')[0] for item in entries}:
+        directory = layout.skills_home / name
+        assert_safe_target(layout.skills_home, directory)
+        if directory.is_dir():
+            for candidate in directory.iterdir():
+                if candidate.name.startswith('.harness-retained-'):
+                    plan.problems.append(Problem(
+                        'retained-file', 'skills:' + name + '/SKILL.md',
+                        f'Previous deletion left skills:{name}/{candidate.name}; inspect it before retrying.',
+                    ))
+    for name in entries:
+        if not name.endswith('/SKILL.md') or len(name.split('/')) != 2:
+            continue
+        root, target = file_target(layout, 'skills:' + name)
+        before = _read_regular(root, target)
+        if before is not None and digest(before.replace(b'\r\n', b'\n')) == entries[name]:
+            matching_dirs[name.split('/')[0]] = before
+    # 途中失敗から再開できるよう、各スキルの入口は参照ファイルの後に削除する。
+    for name in sorted(entries, key=lambda value: (value.endswith('/SKILL.md') and len(value.split('/')) == 2, value)):
+        if name.split('/')[0] not in matching_dirs:
+            continue
+        target_id = 'skills:' + name
+        root, target = file_target(layout, target_id)
+        before = _read_regular(root, target)
+        if name == name.split('/')[0] + '/SKILL.md' and before != matching_dirs[name.split('/')[0]]:
+            raise ValueError('concurrent-change')
+        if target_id in plan.state.get('managed_files', {}) or target_id in plan.state.get('retired_files', {}):
+            if before is not None:
+                plan.problems.append(Problem('conflict', target_id, 'Legacy file overlaps managed state.'))
+            continue
+        if before is not None and digest(before.replace(b'\r\n', b'\n')) == entries[name]:
+            plan.operations.append(Operation(target_id, 'delete', target, before, None))
 
 
 def build_plan(layout: Layout, *, adopt_from: str | None = None) -> SyncPlan:
@@ -222,7 +274,9 @@ def build_plan(layout: Layout, *, adopt_from: str | None = None) -> SyncPlan:
         files = source_files(layout.repo)
         for name, data in sorted(files.items()):
             _add_file(plan, layout, name, data, legacy)
-        _add_config(plan, layout)
+        names, legacy_files = read_policy(layout.repo)
+        _add_config(plan, layout, names, legacy_files)
+        _add_legacy_superpowers_deletions(plan, layout, legacy_files)
         current_ids = {_source_id(name) for name in files}
         old = dict(plan.state.get('retired_files', {}))
         old.update(plan.state.get('managed_files', {}))
@@ -280,6 +334,58 @@ def atomic_write(root: Path, target: Path, data: bytes, expected: bytes | None) 
             pass
 
 
+class RetainedFileError(ValueError):
+    def __init__(self, path: Path):
+        self.path = path
+        super().__init__('retained-file')
+
+
+def _delete_checked(root: Path, op: Operation, entry: Operation) -> None:
+    import tempfile
+
+    if _read_regular(root, entry.target) != entry.expected_before:
+        raise ValueError('concurrent-change')
+    if _read_regular(root, op.target) != op.expected_before:
+        raise ValueError('concurrent-change')
+    assert_safe_target(root, op.target)
+    skill_dir = root / op.target.relative_to(root).parts[0]
+    assert_safe_target(root, skill_dir)
+    temporary = Path(tempfile.mkdtemp(prefix='.harness-retained-', dir=skill_dir))
+    retained = temporary / 'payload'
+    moved = False
+    try:
+        assert_safe_target(root, op.target)
+        assert_safe_target(root, retained)
+        os.rename(op.target, retained)
+        moved = True
+        if _read_regular(root, retained) != op.expected_before:
+            raise ValueError('concurrent-change')
+        if _read_regular(root, op.target) is not None:
+            raise ValueError('concurrent-change')
+        if op.target != entry.target and _read_regular(root, entry.target) != entry.expected_before:
+            raise ValueError('concurrent-change')
+        assert_safe_target(root, retained)
+        retained.unlink()
+        moved = False
+    except (OSError, ValueError):
+        if moved:
+            try:
+                # 既に別のファイルが作られていれば上書きせず、一時領域に保持する。
+                assert_safe_target(root, retained)
+                assert_safe_target(root, op.target)
+                os.link(retained, op.target, follow_symlinks=False)
+                assert_safe_target(root, retained)
+                retained.unlink()
+                moved = False
+            except (OSError, ValueError):
+                raise RetainedFileError(retained) from None
+        raise
+    finally:
+        if not moved:
+            assert_safe_target(root, temporary)
+            temporary.rmdir()
+
+
 def _verify_operations(layout: Layout, plan: SyncPlan) -> list[Problem]:
     problems = []
     _check_layout(layout)
@@ -287,7 +393,8 @@ def _verify_operations(layout: Layout, plan: SyncPlan) -> list[Problem]:
         if op.action == 'retired':
             continue
         root = layout.skills_home if op.target_id.startswith('skills:') else layout.codex_home
-        if _read(root, op.target) != op.desired_bytes:
+        current = _read_regular(root, op.target) if op.action == 'delete' else _read(root, op.target)
+        if current != op.desired_bytes:
             problems.append(Problem('mismatch', op.target_id, 'Written content did not match the plan.'))
     return problems
 
@@ -325,6 +432,14 @@ def apply_plan(layout: Layout, plan: SyncPlan) -> ApplyResult:
                 continue
             if op.action == 'adopt':
                 result.adopted_ids.append(op.target_id)
+            if op.action == 'delete':
+                _check_layout(layout)
+                entry_id = 'skills:' + op.target_id.split(':', 1)[1].split('/')[0] + '/SKILL.md'
+                entry = next(item for item in fresh.operations
+                             if item.action == 'delete' and item.target_id == entry_id)
+                _delete_checked(layout.skills_home, op, entry)
+                result.changed_ids.append(op.target_id)
+                continue
             if op.desired_bytes != op.expected_before:
                 _check_layout(layout)
                 root = layout.skills_home if op.target_id.startswith('skills:') else layout.codex_home
@@ -354,6 +469,10 @@ def apply_plan(layout: Layout, plan: SyncPlan) -> ApplyResult:
             raw = (json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True) + '\n').encode()
             _check_layout(layout)
             atomic_write(layout.codex_home, layout.state_dir / 'state.json', raw, fresh.state_before)
+    except RetainedFileError as error:
+        result.problems.append(Problem('retained-file', current_id,
+                                      f'File retained at skills:{error.path.relative_to(layout.skills_home).as_posix()}; '
+                                      'inspect it before retrying.'))
     except (OSError, ValueError):
         result.problems.append(Problem('apply-failed', current_id,
                                       'Apply stopped. Inspect changed IDs; success was not recorded.'))
