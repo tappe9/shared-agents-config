@@ -2,7 +2,7 @@
 
 WindowsとmacOSで使うCodexの共通ルール、エージェントの役割、スキルを管理するリポジトリです。設定の変更はGitで管理する原本に加え、各端末に適用します。
 
-![共通設定を適用する手順。validateで原本を検証し、planで差分を確認。Codexを終了して外部ターミナルでapplyし、再起動後にverifyで配置を確認する。](docs/assets/config-workflow.svg)
+![The shared-agents-config repository supplies common rules, agent roles, and skills to macOS and Windows for coding with Codex on both platforms.](docs/assets/config-workflow.jpg)
 
 適用するコミットを決めたら、作業ツリーがクリーンな状態で `validate` と `plan` を再実行します。差分の内容を確認し、`apply_blocked` が `false` なら適用に進みます。
 
