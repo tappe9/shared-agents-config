@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import tomllib
+from io import StringIO
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -19,6 +20,8 @@ BOM = b'\xef\xbb\xbf'
 
 ROLE_METADATA_KEYS = frozenset({'name', 'description'})
 ROLE_REQUIRED_STRING_KEYS = ('name', 'description', 'developer_instructions')
+MAX_SKILL_NAME_LENGTH = 64
+MAX_SKILL_DESCRIPTION_LENGTH = 1024
 # Pinned to the Codex documentation/schema snapshot recorded in docs/role-validation.md.
 MODEL_REASONING_EFFORTS = frozenset({
     'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra',
@@ -205,6 +208,44 @@ def _role_problem(name: str, key: str, reason: str) -> Problem:
     return Problem('invalid-role', 'codex:' + name, f'Role setting "{key}" {reason}.')
 
 
+def _skill_problem(name: str, key: str, reason: str) -> Problem:
+    return Problem('invalid-skill', name, f'Skill field "{key}" {reason}.')
+
+
+def _validate_skill_definition(name: str, data: dict, skills: set[str]) -> list[Problem]:
+    if not isinstance(data, dict):
+        return [_skill_problem(name, '<root>', 'must be a frontmatter mapping')]
+
+    for key in ('name', 'description'):
+        value = data.get(key)
+        if not isinstance(value, str) or not value.strip():
+            return [_skill_problem(name, key, 'must be a non-empty string')]
+
+    skill_name = data['name']
+    if len(skill_name) > MAX_SKILL_NAME_LENGTH:
+        return [_skill_problem(name, 'name', 'length must be between 1 and 64 characters')]
+    if any(not (character.isalnum() or character == '-') for character in skill_name):
+        return [_skill_problem(
+            name, 'name', 'contains an invalid character; use Unicode letters, digits, or ASCII hyphens',
+        )]
+    if skill_name != skill_name.lower():
+        return [_skill_problem(name, 'name', 'must use lowercase characters')]
+    if skill_name.startswith('-') or skill_name.endswith('-') or '--' in skill_name:
+        return [_skill_problem(name, 'name', 'must not start, end, or repeat a hyphen')]
+
+    if len(data['description']) > MAX_SKILL_DESCRIPTION_LENGTH:
+        return [_skill_problem(
+            name, 'description', 'length must not exceed 1024 characters',
+        )]
+
+    directory = PurePosixPath(name).parts[1]
+    if skill_name != directory:
+        return [_skill_problem(name, 'name', 'must match its directory name')]
+    if skill_name in skills:
+        return [_skill_problem(name, 'name', 'must be unique')]
+    return []
+
+
 def _schema_problem(name: str, error) -> Problem:
     path = [str(part) for part in error.absolute_path]
     if error.validator == 'additionalProperties':
@@ -354,22 +395,26 @@ def validate_sources(repo: Path) -> list[Problem]:
                 ))
         if parts[0] == 'skills' and parts[-1] == 'SKILL.md' and len(parts) == 3:
             try:
-                text = raw.decode('utf-8-sig')
-                lines = text.splitlines()
-                if lines[0] != '---':
+                stream = StringIO(raw.decode('utf-8-sig'), newline='')
+                if stream.readline().rstrip('\r\n') != '---':
                     raise ValueError
-                end = lines.index('---', 1)
-                data = yaml.load('\n'.join(lines[1:end]), Loader=UniqueSafeLoader)
-                if not isinstance(data, dict):
+                frontmatter = []
+                for line in stream:
+                    if line.rstrip('\r\n') == '---':
+                        break
+                    frontmatter.append(line)
+                else:
                     raise ValueError
-                for key in ('name', 'description'):
-                    if not isinstance(data.get(key), str) or not data[key].strip():
-                        raise ValueError
-                if data['name'] != parts[1] or data['name'] in skills:
-                    raise ValueError
-                skills.add(data['name'])
-            except (ValueError, yaml.YAMLError, TypeError, IndexError):
-                problems.append(Problem('invalid-skill', name, 'Skill frontmatter is invalid.'))
+                # 末尾改行などの解釈を YAML に委ねるため、元の行を保持する。
+                data = yaml.load(''.join(frontmatter), Loader=UniqueSafeLoader)
+            except (UnicodeError, ValueError, yaml.YAMLError, TypeError, IndexError):
+                problems.append(_skill_problem(name, '<root>', 'frontmatter could not be parsed'))
+            else:
+                skill_problems = _validate_skill_definition(name, data, skills)
+                if skill_problems:
+                    problems.extend(skill_problems)
+                else:
+                    skills.add(data['name'])
         if parts[0] == 'skills' and name.endswith('.md'):
             try:
                 text = raw.decode('utf-8-sig')
