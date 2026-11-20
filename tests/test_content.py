@@ -302,3 +302,34 @@ def test_skill_frontmatter_preserves_bom_crlf_and_multiline(sandbox):
     sandbox.commit()
 
     assert validate_sources(sandbox.repo) == []
+
+
+@pytest.mark.parametrize(('style', 'width', 'eol', 'valid'), [
+    ('|', 1023, '\n', True),
+    ('|', 1024, '\n', False),
+    ('>', 1024, '\r\n', False),
+    ('|+', 1024, '\n', False),
+    ('|-', 1024, '\n', True),
+], ids=['literal-1024', 'literal-1025', 'folded-crlf-1025',
+        'keep-1025', 'strip-1024'])
+def test_skill_block_description_length(sandbox, style, width, eol, valid):
+    raw = eol.join(['---', 'name: sample', f'description: {style}',
+                    '  ' + 'x' * width, '---', '# Sample', ''])
+    sandbox.write('skills/sample/SKILL.md', raw)
+    sandbox.commit()
+
+    problems = validate_sources(sandbox.repo)
+    if valid:
+        assert problems == []
+    else:
+        assert any(p.code == 'invalid-skill' and p.target_id == 'skills/sample/SKILL.md'
+                   and 'description' in p.message and '1024' in p.message for p in problems)
+
+
+def test_skill_description_preserves_unicode_line_separators(sandbox):
+    description = '"x' + '\u2028\u2028' + '  ' + 'y' * 1022 + '"'
+    _replace_skill(sandbox, frontmatter=f'name: sample\ndescription: {description}\n')
+
+    problems = validate_sources(sandbox.repo)
+    assert any(p.code == 'invalid-skill' and 'description' in p.message
+               and '1024' in p.message for p in problems)

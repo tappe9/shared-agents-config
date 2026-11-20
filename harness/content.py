@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import tomllib
+from io import StringIO
 from pathlib import Path, PurePosixPath
 
 import yaml
@@ -369,12 +370,18 @@ def validate_sources(repo: Path) -> list[Problem]:
                 ))
         if parts[0] == 'skills' and parts[-1] == 'SKILL.md' and len(parts) == 3:
             try:
-                text = raw.decode('utf-8-sig')
-                lines = text.splitlines()
-                if not lines or lines[0] != '---':
+                stream = StringIO(raw.decode('utf-8-sig'), newline='')
+                if stream.readline().rstrip('\r\n') != '---':
                     raise ValueError
-                end = lines.index('---', 1)
-                data = yaml.load('\n'.join(lines[1:end]), Loader=UniqueSafeLoader)
+                frontmatter = []
+                for line in stream:
+                    if line.rstrip('\r\n') == '---':
+                        break
+                    frontmatter.append(line)
+                else:
+                    raise ValueError
+                # 末尾改行などの解釈を YAML に委ねるため、元の行を保持する。
+                data = yaml.load(''.join(frontmatter), Loader=UniqueSafeLoader)
             except (UnicodeError, ValueError, yaml.YAMLError, TypeError, IndexError):
                 problems.append(_skill_problem(name, '<root>', 'frontmatter could not be parsed'))
             else:
